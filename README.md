@@ -15,8 +15,8 @@
 
 ```
 paper/
-  Continuous_Relaxation_Decoding_for_CSS_Quantum_LDPC_Codes.tex   # full source
-  Continuous_Relaxation_Decoding_for_CSS_Quantum_LDPC_Codes.pdf   # compiled paper
+  Continuous Relaxation Decoding for CSS_Quantum LDPC Codes.tex   # full source
+  Continuous Relaxation Decoding for CSS_Quantum LDPC Codes.pdf   # compiled paper
 
 script/
   continuous_relaxation_decoder.py   # core library (decoder, code builders, GF(2) tools)
@@ -29,7 +29,7 @@ misc_computation/
   o4_css_generalisation.py     # λ* universality across CSS code families
   o5_hardware_acceleration.py  # FLOP model, serial/batch/PyTorch throughput
   cd_smart_explorer.py   # causal diamond seed search, 64 augmenting rows, B4 orbits
-  cd_smart_explorer_augmentation   # level-2 augmentation and [[468,36]] ISD certification
+  cd_smart_explorer_augmentation.py   # level-2 augmentation and [[468,36]] ISD certification
 ```
 
 ---
