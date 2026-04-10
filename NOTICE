@@ -1,0 +1,18 @@
+**Continuous Relaxation Decoding for CSS Quantum LDPC Codes - Verification & Implementation Suite**
+
+This software implements and verifies the energy-based decoding framework and analytical results presented in the paper:
+> Yannick Schmitt. (2026). Continuous Relaxation Decoding for CSS Quantum LDPC Codes: Energy Landscape, Basin Geometry, Gradient Dynamics, and Hardware Implementation. Zenodo. https://doi.org/10.5281/zenodo.19484007
+
+The framework introduces a syndrome-agnostic "squared-spring" energy landscape for decoding CSS codes. Key highlights of the implementation include:
+
+| Component | Parameters/Results | Highlights |
+| :--- | :--- | :--- |
+| **Primary Code** | [[193, 25, 4]] | D4 causal diamond HGP code testbed |
+| **CR Decoder** | $\lambda^* \approx (3/16)\bar{d}$ | Optimal heuristic verified across 6 code families |
+| **Performance** | 86,535 syn/s | GPU-accelerated batch throughput (PyTorch) |
+| **Basin Geometry** | Theorems 3.4, 4.1, 4.3 | Provably exact Hessian and gradient at valid codewords |
+| **Key Finding** | Girth-Trap Hypothesis | **Falsified**: Girth-8 codes found to trap more than Girth-4 |
+
+This suite provides the tools to reproduce all figures and tables in the paper, including the momentum-based escape dynamics (GD, HB, NAG, Langevin) and the $P_L(p)$ threshold benchmarks.
+
+If you use this code or the implemented algorithms in your research, please cite the paper mentioned above.

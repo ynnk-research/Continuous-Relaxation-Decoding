@@ -1,0 +1,12 @@
+cff-version: 1.2.0
+message: "If you use this work, please cite it as below."
+authors:
+  - family-names: Schmitt
+    given-names: Yannick
+    orcid: https://orcid.org/0009-0002-0308-9082
+title: "Continuous Relaxation Decoding for {CSS} Quantum {LDPC} Codes: Energy Landscape, Basin Geometry, Gradient Dynamics, and Hardware Implementation"
+version: 1.0.0
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.19484007
+date-released: 2026-10-04

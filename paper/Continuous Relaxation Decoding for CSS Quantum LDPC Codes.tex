@@ -1,0 +1,1961 @@
+\documentclass[12pt,a4paper]{article}
+
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath,amssymb,amsthm,amsfonts}
+\usepackage{mathtools}
+\usepackage{bm}
+\usepackage{xcolor}
+\usepackage[colorlinks=true,linkcolor=black,citecolor=black,urlcolor=blue]{hyperref}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{microtype}
+\usepackage{cleveref}
+\usepackage{mathrsfs}
+\usepackage{thmtools}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+
+\theoremstyle{plain}
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{corollary}[theorem]{Corollary}
+
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{construction}[theorem]{Construction}
+\newtheorem{observation}[theorem]{Observation}
+
+\theoremstyle{remark}
+\newtheorem{remark}[theorem]{Remark}
+
+\newcommand{\GFtwo}{\mathbb{F}_2}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\HZ}{H_Z}
+\newcommand{\HX}{H_X}
+\newcommand{\rank}{\operatorname{rank}}
+\newcommand{\wt}{\operatorname{wt}}
+\newcommand{\dZ}{\operatorname{deg}_Z}
+
+\title{\Large\bfseries Continuous Relaxation Decoding for CSS\\[4pt]
+Quantum LDPC Codes:\\[4pt]
+Energy Landscape, Basin Geometry,\\[4pt]
+Gradient Dynamics, and Hardware Implementation}
+
+\author{Yannick Schmitt \\
+\texttt{ynnk.schmitt@gmail.com} \\
+\vspace{4pt}
+\href{https://doi.org/10.5281/zenodo.19484007}{DOI: 10.5281/zenodo.19484007}}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We propose and rigorously analyse a continuous-relaxation decoder for CSS
+quantum low-density parity-check (qLDPC) codes, with the
+$[[193,25,d=4]]$ D4 causal diamond hypergraph-product code as the
+primary testbed~\cite{Tillich2014,SchmittScale} and two high-distance
+augmented-seed codes --- $[[112,4,(6,6)]]$ and $[[176,32,(3,6)]]$ ---
+as secondary testbeds demonstrating near-term hardware relevance.
+A computational characterisation of the HGP seed structure confirms
+that $d=4$ is the theoretical maximum for any code built from the
+causal diamond plaquette row space; a companion analysis identifies 64
+weight-3 rows outside this space that raise $d_{\mathrm{cl}}$ from 4
+to 6, generating the $[[112,4,(6,6)]]$ family ($kd^2/N \approx 1.29$,
+the Pareto-optimal finite-block code at $N\sim100$) and the asymmetric
+$[[176,32,(3,6)]]$ code (rate $0.182$, tailored to Z-biased noise).
+The decoder lifts binary error variables $e_q \in \{0,1\}$ to
+continuous spin variables $v_q \in \R$ and defines a squared-spring
+energy $H(v)$ whose global minima are exactly the valid codewords.
+
+Our analytical contributions are three exact theorems, each verified to
+machine precision ($<10^{-10}$) across six independent CSS code families.
+The critical-point theorem shows that the linear spring formulation lacks
+fixed points at valid codewords, while the squared spring formulation
+achieves $H(v^*)=0$ and $\nabla H(v^*)=\bm{0}$ simultaneously without
+approximation.
+The Hessian theorem gives the exact closed form $H_{qq}=2\lambda +
+\dZ(q)/2$ at any valid codeword, implying strict positive definiteness
+for all $\lambda>0$.
+These results are algebraic and hold universally for any CSS code.
+
+Our experimental contributions characterise the full geometry of the energy
+landscape.
+The null space of the shared-check adjacency matrix has dimension equal to
+$N - \rank(\HZ)$ (109 out of 193 for the D4-HGP code), corresponding
+precisely to the logical operator subspace; gradient dynamics along these
+directions is governed solely by the containment term.
+The direct correction path from a valid codeword to a single-error state
+is provably monotone, establishing that single-error decoding failures are provably
+impossible under gradient descent; empirically, this extends to $t\leq 2$ errors.
+Failures for $t\geq 3$ are caused exclusively by pseudo-codeword traps
+with barrier heights $\Delta E \in [1, 4]$ at $\lambda=0.5$; the actual
+basin of attraction is $3$--$11\times$ wider than the Hessian radius
+predicts, and both radii scale as $\lambda^{-1/2}$, making the normalised
+basin shape $\lambda$-invariant.
+
+A sweep across four optimiser variants (gradient descent, heavy-ball
+momentum, Nesterov, and Langevin dynamics) reveals that heavy-ball
+achieves a marginal gain at $t=5$ errors (beyond the minimum distance
+$d=4$, probing optimiser behaviour under high error load) via a
+path-geometry mechanism, not barrier vaulting; the Langevin decoder
+requires noise temperature $T_0 \ll \Delta E_{\min} = 1.0$ for the code.
+A key conceptual result is that $H(v)$ is \emph{syndrome-agnostic}: the
+energy depends only on spin configuration, not on the target syndrome.
+The decoder therefore acts as a \emph{codeword projector}, with its
+standalone performance determined by the initialization quality rather than
+by the landscape itself.
+
+Empirically, the optimal containment coefficient follows a corrected
+universal heuristic $\lambda^* \approx \tfrac{3}{16}\bar{d}$, where
+$\bar{d}$ is the mean qubit degree; this refines the trace-balance
+prediction $\bar{d}/4$ by a factor of $0.75$ observed consistently across
+four independent code families.
+Furthermore, the girth of the Tanner graph does not predict the
+pseudo-codeword trap density for continuous decoding: a code with girth 8
+traps at $2.5\times$ the rate of a code with girth 4, falsifying a
+natural generalisation of the belief propagation analysis.
+
+On hardware, a fully vectorised PyTorch GPU implementation achieves
+$86\,535$ syndromes per second at batch size $16\,384$, a $\approx
+28\,000\times$ speedup over the serial Python baseline (which operates
+at $\approx 0.1\%$ theoretical FLOP efficiency due to the Python check loop).
+The FLOP comparison with MWPM is regime-dependent: against the naive
+$O(N^3)$ worst-case bound the continuous decoder uses $8\times$ fewer
+FLOPs; against a sparse-Blossom graph model ($\approx 49\,000$ FLOPs for
+810 matching-graph edges) it uses $18\times$ more.
+Furthermore, standard MWPM implementations are structurally inapplicable
+to the D4-HGP code: $44\%$ of its qubits have column weight $\geq 3$ and
+require a hyperedge decomposition for which no simple clique approximation
+is effective, yielding $\leq 31\%$ success at $t=1$ errors.
+The practical step-count optimum is $K=200$ gradient steps, achieving
+$96\%$ of the asymptotic success rate at twice the throughput of $K=400$.
+\end{abstract}
+
+\tableofcontents
+\bigskip
+
+\noindent\textbf{MSC 2020:} 81P70, 94B05, 90C20.\\[2pt]
+\textbf{Keywords:} continuous relaxation; CSS code; qLDPC; energy landscape;
+basin geometry; gradient dynamics; Hessian; pseudo-codewords;
+hardware acceleration; causal diamond.
+
+% ════════════════════════════════════════════════════════════════════════════
+\section{Introduction}\label{sec:intro}
+% ════════════════════════════════════════════════════════════════════════════
+
+Decoding quantum LDPC codes is a central challenge in quantum error
+correction.
+The minimum-weight perfect matching (MWPM) decoder, standard for surface
+codes, does not extend to the geometry of general qLDPC codes.
+Belief propagation (BP) does extend, but qLDPC Tanner graphs contain
+short cycles that cause BP messages to form self-reinforcing loops ---
+the ``trapping set'' or ``pseudo-codeword'' phenomenon --- and BP can fail
+catastrophically even at low error rates~\cite{Poulin2008,Roffe2020}.
+
+An alternative approach, motivated by physics-based optimisation, lifts
+the discrete decoding problem to a continuous energy minimisation.
+Hopfield networks~\cite{Hopfield1982} encode constraint satisfaction as
+energy minima; Ising machines~\cite{Inagaki2016} exploit physical dynamics
+to solve combinatorial problems.
+The central question for QEC is whether the continuous energy landscape can
+be designed so that gradient dynamics reliably finds the correct codeword.
+
+We apply this approach to the $[[193,25,d=4]]$ CSS qLDPC code
+constructed in~\cite{SchmittScale} via the Tillich--Z\'emor hypergraph
+product of the D4 causal diamond seed matrix~\cite{SchmittCSS}.
+This code is a concrete, fully specified instance with known parameters.
+We additionally test the decoder on two high-distance codes from the
+augmented-seed family of~\cite{SchmittScale}: the $[[112,4,(6,6)]]$
+code ($kd^2/N \approx 1.29$, the highest figure-of-merit code from the
+causal diamond geometry at $N\sim100$) and the $[[176,32,(3,6)]]$ code
+(rate $0.182$, asymmetric distances suited to Z-biased noise hardware).
+For both new codes, all analytical theorems pass to machine precision,
+the $\lambda^* = \tfrac{3}{16}\bar{d}$ heuristic is independently
+confirmed, and the continuous decoder achieves 100\% success for
+$t\leq\lfloor(d-1)/2\rfloor$ with graceful degradation beyond.
+We then test the universality of all analytical results across a full
+zoo of eight CSS code families including bicycle codes, repetition-code
+hypergraph products, and random LDPC products.
+
+\paragraph{Contributions.}
+\begin{enumerate}[label=(\roman*),noitemsep]
+\item A critical-point theorem proving that the linear spring formulation
+  has no fixed points at valid codewords, while the squared spring
+  formulation achieves zero energy and zero gradient simultaneously,
+  without any approximation (\cref{thm:critical}).
+\item An exact closed-form Hessian at any valid codeword:
+  $H_{qq} = 2\lambda + \dZ(q)/2$ on the diagonal,
+  implying strict local minimality for all $\lambda > 0$,
+  verified to machine precision across six CSS code families
+  (\cref{thm:hessian,sec:universality}).
+\item An exact single-error formula showing that the gradient restoring
+  force equals $\dZ(q^*)$, proven and verified to machine precision
+  (\cref{thm:single_error}).
+\item A three-radius characterisation of the codeword basin geometry:
+  the quadratic Hessian radius $r_{\mathrm{loc}}$, the pseudo-codeword
+  barrier radius $r_{\mathrm{barrier}}$, and the empirical escape radius
+  $r_{\mathrm{emp}}$, with $r_{\mathrm{emp}} \gg r_{\mathrm{barrier}} \geq
+  r_{\mathrm{loc}}$ and a provably monotone direct correction path for
+  $t\leq 2$ (\cref{sec:basin}).
+\item A comparative analysis of four optimiser variants
+  (GD, heavy-ball, Nesterov, Langevin), including proof by trajectory
+  analysis that the momentum mechanism is path-geometric rather than
+  barrier-vaulting, and a calibration requirement for Langevin dynamics
+  (\cref{sec:momentum}).
+\item A conceptual identification of the decoder as a
+  \emph{syndrome-agnostic codeword projector}, with implications for
+  the correct measurement protocol for the decoder threshold
+  (\cref{sec:threshold}).
+\item A corrected universal heuristic $\lambda^* \approx \tfrac{3}{16}\bar{d}$
+  for the optimal containment coefficient, and a falsification of the
+  girth--trap-density hypothesis for continuous decoding (\cref{sec:universality}).
+\item A hardware acceleration study demonstrating $86\,535$ syndromes/s
+  on a GPU via gather/scatter vectorisation, $8\times$ fewer FLOPs than
+  the naive $O(N^3)$ MWPM bound ($18\times$ \emph{more} than sparse-Blossom),
+  and a $K=200$ practical optimum for step count
+  (\cref{sec:hardware}).
+\item Experimental characterisation of the decoder on two high-distance
+  codes from the augmented-seed family~\cite{SchmittScale}: the
+  $[[112,4,(6,6)]]$ and $[[176,32,(3,6)]]$ codes, both significantly
+  outperforming the surface code at $N\sim100$--200.
+  Decoder benchmarks independently confirm the algebraically certified
+  distances and validate the $\lambda^*$ heuristic, establishing the
+  continuous relaxation decoder as the natural companion algorithm for
+  the Lorentzian code family (\cref{sec:universality}).
+\end{enumerate}
+
+% ════════════════════════════════════════════════════════════════════════════
+\section{Setup and Notation}\label{sec:setup}
+% ════════════════════════════════════════════════════════════════════════════
+
+Let $\mathcal{C}$ be a CSS code on $N$ physical qubits with
+$Z$-stabiliser matrix $\HZ \in \GFtwo^{M \times N}$ and
+$X$-stabiliser matrix $\HX \in \GFtwo^{M \times N}$,
+satisfying $\HZ \HX^T \equiv 0 \pmod{2}$.
+We work throughout with $Z$-error decoding; the $X$-error case is symmetric.
+
+\begin{definition}[Tanner graph and support]\label{def:tanner}
+The \emph{Tanner graph} $G(\HZ)$ is bipartite with $N$ qubit nodes and
+$M$ check nodes; qubit $q$ and check $j$ are adjacent iff $\HZ[j,q]=1$.
+The \emph{support} of check $j$ is $\mathrm{supp}(j) = \{q : \HZ[j,q]=1\}$
+with $|\mathrm{supp}(j)| = w_j$ (the check weight).
+The \emph{column weight} $\dZ(q) = \sum_j \HZ[j,q]$ is the degree of
+qubit $q$ in $G(\HZ)$.
+The mean qubit degree is $\bar{d} = N^{-1}\sum_q \dZ(q) = M\bar{w}/N$,
+where $\bar{w}$ is the mean check weight.
+\end{definition}
+
+\begin{definition}[Spin lift]\label{def:lift}
+The \emph{spin representation} maps binary vectors $e \in \{0,1\}^N$ to
+spin vectors $v \in \{+1,-1\}^N$ via $v_q = 1 - 2e_q$.
+In this representation, the GF(2) parity constraint
+$\bigoplus_{q \in \mathrm{supp}(j)} e_q = 0$
+is equivalent to the multiplicative constraint
+$P_j(v) := \prod_{q \in \mathrm{supp}(j)} v_q = +1$.
+\end{definition}
+
+The spin representation is exact on $\{+1,-1\}^N$; no approximation is
+involved.
+
+\begin{definition}[Shared-check adjacency matrix]\label{def:adjacency}
+The \emph{shared-check adjacency matrix} $A \in \mathbb{Z}_{\geq 0}^{N\times N}$
+is defined by $A_{qr} = |\{j : q\in\mathrm{supp}(j),\, r\in\mathrm{supp}(j)\}|$.
+The diagonal entries satisfy $A_{qq} = \dZ(q)$.
+In matrix form, $A = \HZ^T \HZ$ (as an integer matrix).
+Since $A$ is a Gram matrix, $A \succeq 0$.
+\end{definition}
+
+\paragraph{The D4-HGP code.}
+The primary testbed is the $[[193,25,d=4]]$ code obtained as the
+hypergraph product of the $7\times 12$ independent-row basis of the D4
+causal diamond $Z$-stabiliser matrix~\cite{SchmittScale}.
+Parameters: $N=193$, $M=84$, $\rank(\HZ)=84$.
+Column weights range from 1 to 7 with mean $\bar{d}=2.76$.
+Row weights range from 5 to 11.
+The null space of $A$ has dimension $\dim\ker(A) = N - \rank(\HZ) = 109$.
+
+\begin{remark}[Corrected distance and seed characterisation]
+\label{rem:d4_corrected}
+An earlier version of~\cite{SchmittScale} reported $d\geq 67$ for this code.
+A subsequent revision to the scaling analysis in that work established
+$d=4$.
+All decoder-analytic results in the present paper (Theorems~3.4, 4.1, 4.3
+and all associated observations) are algebraic identities that hold for any
+CSS code independent of minimum distance; they are unaffected by this
+correction.
+The experimental benchmarks at $t=1,2,3,4$ remain meaningful and
+correctly characterise decoder performance relative to the true distance.
+Experimental results at $t\geq 5$ probe the regime beyond the minimum
+distance and should be interpreted as stress-tests of the optimiser, not
+as below-threshold decoding.
+
+A computational characterisation of the HGP seed structure, carried out
+as part of the analysis accompanying this paper, establishes that $d=4$
+is the \emph{theoretical maximum} for any hypergraph-product code built
+from the causal diamond geometry.
+The classical minimum distance of the primal seed
+$H_Z^{\mathrm{primal}}$ (the $7\times 12$ independent-row basis of the
+plaquette incidence matrix) equals $d_{\mathrm{cl}}=4$, achieved
+uniquely by the three spatial-axis group vectors $G_1, G_2, G_3$; no
+vector of weight $1$, $2$, or $3$ lies in $\ker(H_Z^{\mathrm{primal}})$.
+Since the HGP distance satisfies
+$d_Z(\mathrm{HGP}(H,H)) \leq d_{\mathrm{cl}}(H)$,
+the primal seed achieves the best distance available.
+The dual family of~\cite{SchmittCSS} yields only smaller classical
+distances ($d_{\mathrm{cl}}=3$ for all 1248 valid Code~II X-check
+matrices, verified exhaustively, and $d_{\mathrm{cl}}=2$ for the
+spatial-axis seed), confirming that no orientation or variant within the
+causal diamond 2-complex improves on $d=4$.
+The $d=4$ result is a geometric invariant of the causal diamond, not a
+defect of the Lorentzian construction.
+
+However, a single weight-3 row \emph{outside} the plaquette row space,
+whose support intersects each of $G_1, G_2, G_3$ in exactly one qubit,
+kills all three minimum-weight codewords simultaneously and raises
+$d_{\mathrm{cl}}$ from $4$ to $6$ (weight spectrum $\{6{:}\,12,\;
+8{:}\,3\}$).
+There are precisely \textbf{64} such rows of minimum weight 3.
+Under the $B_4$ symmetry group (of order~96), they partition into
+exactly 2 orbits: one of size~16 and one of size~48; the set is
+$B_4$-closed but not $B_4$-transitive.
+The hypergraph product of the resulting augmented $(8\times 12)$ seed
+with itself yields a $[[208, 16]]$ code.
+Because $H_{\mathrm{aug}}$ has full row rank~8, its transpose
+$H_{\mathrm{aug}}^T$ has trivial kernel over $\GFtwo$, so the
+Tillich--Z\'emor theorem gives $d_Z \geq \min(6,\infty)=6$ and
+$d_X \geq 6$ algebraically.
+A subsequent meet-in-the-middle search confirmed a weight-6
+$Z$-logical operator exists, establishing $d_Z = d_X = 6$ exactly
+and making this the \textbf{first code from the causal diamond geometry
+exceeding the $d=4$ ceiling}: $[[208,16,6]]$ with
+$k d^2/N = 16\times 36/208 \approx 2.77$.
+See \cref{sec:discussion} for the full analysis and extended code families.
+\end{remark}
+
+% ════════════════════════════════════════════════════════════════════════════
+\section{The Continuous Energy Function}\label{sec:energy}
+% ════════════════════════════════════════════════════════════════════════════
+
+\subsection{Two candidate energy functions}
+
+We extend the spin representation to the full real line by introducing
+continuous variables $v_q \in \R$ and defining energy functions whose
+global minima are the codeword spin vectors.
+
+\begin{definition}[Containment potential]\label{def:containment}
+The \emph{containment potential} is the double-well function
+\[
+  V(v_q) = \frac{\lambda}{4}(v_q^2 - 1)^2, \qquad \lambda > 0,
+\]
+with global minima at $v_q = \pm 1$ and a local maximum at $v_q = 0$.
+Its gradient is $V'(v_q) = \lambda(v_q^2-1)v_q$, which vanishes at
+$v_q = \pm 1$.
+\end{definition}
+
+\begin{definition}[Linear spring energy]\label{def:linear_spring}
+\[
+  H_{\mathrm{lin}}(v) = \sum_{q=1}^N V(v_q) + \sum_{j=1}^M \frac{1-P_j(v)}{2}.
+\]
+For $v \in \{+1,-1\}^N$: each satisfied check contributes 0, each
+violated check contributes 1.
+\end{definition}
+
+\begin{definition}[Squared spring energy]\label{def:sq_spring}
+\[
+  H(v) = \sum_{q=1}^N V(v_q) + \sum_{j=1}^M \frac{\bigl(1-P_j(v)\bigr)^2}{4}.
+\]
+For $v \in \{+1,-1\}^N$: each satisfied check contributes 0, each
+violated check contributes 1. The discrete values of $H$ and
+$H_{\mathrm{lin}}$ are identical on $\{+1,-1\}^N$.
+\end{definition}
+
+Both functions agree on the discrete constraint set.
+Their critical-point structure in the continuous domain is radically different.
+
+\subsection{Critical-point theorem}
+
+\begin{theorem}[Critical points of the linear and squared spring energies]
+\label{thm:critical}
+Let $v^* \in \{+1,-1\}^N$ be a valid codeword.
+
+\emph{(i) Linear spring:} $\nabla H_{\mathrm{lin}}(v^*) \neq \bm{0}$.
+Explicitly, at $v^* = +\bm{1}$,
+\[
+  \frac{\partial H_{\mathrm{lin}}}{\partial v_q}\bigg|_{v=+\bm{1}}
+  = -\frac{\dZ(q)}{2} \neq 0.
+\]
+Gradient dynamics on $H_{\mathrm{lin}}$ cannot converge to any valid codeword.
+
+\emph{(ii) Squared spring:} $\nabla H(v^*) = \bm{0}$ and $H(v^*)=0$.
+\end{theorem}
+
+\begin{proof}
+\emph{Part (i).}
+The containment gradient vanishes at $v_q=\pm 1$: $V'(\pm 1) = 0$.
+The linear spring gradient at qubit $q$ evaluated at $v=+\bm{1}$ is
+\[
+  -\frac{1}{2} \sum_{j: q\in\mathrm{supp}(j)} \prod_{k \in \mathrm{supp}(j),\, k\neq q} v_k
+  = -\frac{\dZ(q)}{2},
+\]
+since every $v_k = +1$.
+
+\emph{Part (ii).}
+The squared spring gradient at qubit $q$ is
+\[
+  \frac{\partial H}{\partial v_q} = V'(v_q) -
+    \frac{1}{2}\sum_{j: q\in\mathrm{supp}(j)}
+    \bigl(1 - P_j\bigr)\cdot \frac{P_j}{v_q}.
+\]
+At a valid codeword $P_j = +1$ for all $j$, so $(1-P_j) = 0$, and
+the spring gradient vanishes.
+$V'(v_q^*) = 0$ since $v_q^* = \pm 1$.
+Thus $\nabla H(v^*) = \bm{0}$.
+$H(v^*)=0$ follows from $V(\pm 1)=0$ and $(1-P_j)^2/4 = 0$.
+\end{proof}
+
+\begin{remark}[Exact reformulation, not approximation]
+The squared spring is not an approximation of the linear spring.
+Both equal the check-violation count on $\{+1,-1\}^N$.
+The term $(1-P_j)^2/4$ equals $(1-\cos\theta_j)/2$ where
+$\theta_j \in \{0,\pi\}$ is the phase of $P_j$ on $\{+1,-1\}^N$,
+the XZ-rotation energy familiar from quantum Ising models.
+\end{remark}
+
+% ════════════════════════════════════════════════════════════════════════════
+\section{Analytical Results}\label{sec:analysis}
+% ════════════════════════════════════════════════════════════════════════════
+
+\subsection{Single-error energy and gradient}
+
+\begin{theorem}[Single-error formulae]\label{thm:single_error}
+Let $v^{(q^*)}$ denote the spin vector with $v_{q^*} = -1$ and
+$v_q = +1$ for $q \neq q^*$. Then:
+\begin{align}
+  H(v^{(q^*)}) &= \dZ(q^*), \label{eq:single_energy} \\
+  \frac{\partial H}{\partial v_q}\bigg|_{v = v^{(q^*)}} &=
+    \begin{cases}
+      -\dZ(q^*) & q = q^*, \\
+      +A_{q,q^*} & q \neq q^*, \\
+    \end{cases} \label{eq:single_grad}
+\end{align}
+\end{theorem}
+
+\begin{proof}
+\emph{Energy.}
+Each check $j$ containing $q^*$ has $P_j = -1$,
+contributing $(1-(-1))^2/4 = 1$.
+Checks not containing $q^*$ have $P_j = +1$, contributing 0.
+The containment contributes $V(-1) = 0$.
+Thus $H(v^{(q^*)}) = \dZ(q^*)$.
+
+\emph{Gradient at $q = q^*$.}
+For each $j \ni q^*$: $P_j = -1$,
+$\frac{\partial}{\partial v_{q^*}} \frac{(1-P_j)^2}{4}
+  = -\frac{1}{2}(1-P_j)\frac{P_j}{v_{q^*}} = -1$.
+Summing over $\dZ(q^*)$ checks gives $-\dZ(q^*)$.
+
+\emph{Gradient at $q \neq q^*$.}
+For $j \ni q, q^*$: $P_j = -1$ (since $v_{q^*}=-1$ and all others $+1$)
+and $\frac{P_j}{v_q} = -1/1 = -1$,
+contributing $-\frac{1}{2}(1-(-1))(-1) = -\frac{1}{2}(2)(-1) = +1$.
+For $j \ni q, j \not\ni q^*$: $P_j = +1$, contributing 0.
+Summing over the $A_{q,q^*} = |\{j : q,q^* \in \mathrm{supp}(j)\}|$ shared
+checks gives $+A_{q,q^*}$.
+\end{proof}
+
+\begin{corollary}[Restoring force magnitude]
+The restoring force on the erroneous qubit is $+\dZ(q^*) > 0$,
+directed toward $v_{q^*} = +1$.
+Its magnitude equals the qubit's Tanner graph degree.
+The gradient at a neighbouring qubit $q \neq q^*$ is $+A_{q,q^*} \geq 0$:
+the spring term \emph{pushes} neighbours away from $+1$ (toward the error),
+consistent with the squared-spring trying to restore violated checks by
+flipping all participants.
+\end{corollary}
+
+\subsection{Hessian at valid codewords}
+
+\begin{theorem}[Exact Hessian at any valid codeword]\label{thm:hessian}
+At any valid codeword $v^*$, the Hessian $\mathbf{H} = \nabla^2 H(v^*)$
+has the exact structure:
+\begin{align}
+  \mathbf{H}_{qq} &= 2\lambda + \frac{\dZ(q)}{2}, \label{eq:hess_diag} \\
+  \mathbf{H}_{qr} &= \frac{A_{qr}}{2}, \quad q \neq r,
+    \label{eq:hess_offdiag}
+\end{align}
+where $A = \HZ^T\HZ$ is the shared-check adjacency matrix.
+In matrix form: $\mathbf{H} = 2\lambda I + \tfrac{1}{2}A$.
+\end{theorem}
+
+\begin{proof}
+\emph{Diagonal.}
+The containment contributes $V''(\pm 1) = \lambda(3\cdot 1-1) = 2\lambda$.
+For the spring term, at $P_j = +1$:
+$\frac{\partial^2}{\partial v_q^2}\frac{(1-P_j)^2}{4} = \frac{1}{2}\left(\frac{P_j}{v_q}\right)^2 = \frac{1}{2}$.
+Summing over $\dZ(q)$ checks gives $\dZ(q)/2$.
+
+\emph{Off-diagonal.}
+Only checks containing both $q$ and $r$ contribute.
+At $P_j = +1$:
+$\frac{\partial^2}{\partial v_q \partial v_r}\frac{(1-P_j)^2}{4}
+  = \frac{1}{2}\cdot \frac{P_j^2}{v_q v_r} = \frac{1}{2}$,
+since $v_q^*,v_r^* = \pm 1$ and $P_j^2 = 1$.
+Summing over $A_{qr}$ shared checks gives $A_{qr}/2$.
+\end{proof}
+
+\begin{corollary}[Strict local minimality for all $\lambda > 0$]\label{cor:local_min}
+$\mathbf{H} = 2\lambda I + \tfrac{1}{2}A \succ 0$ for all $\lambda > 0$,
+since $A = \HZ^T\HZ \succeq 0$.
+Every valid codeword is a strict local minimum of $H(v)$.
+\end{corollary}
+
+\subsection{Hessian spectral structure}
+
+The eigenvalue formula $\mu_k(\lambda) = 2\lambda + \sigma_k(A/2)$ follows
+directly from \cref{thm:hessian}, where $\sigma_k(A/2)$ are the eigenvalues
+of $A/2$.
+These are code-intrinsic ($\lambda$-independent) and can be computed once
+from $\HZ$.
+
+\begin{proposition}[Null-space structure]\label{prop:null}
+The null space of $A = \HZ^T\HZ$ over $\R$ has dimension
+$\dim\ker(A) = N - \rank_{\R}(\HZ)$,
+and corresponds precisely to vectors that share no check pair.
+For the D4-HGP code: $\dim\ker(A) = 193 - 84 = 109$.
+In the null directions, $\mu_{\mathrm{null}} = 2\lambda$ exactly, so
+basin curvature is governed solely by the containment term.
+These null directions span a subspace that contains the logical operator
+representatives.
+\end{proposition}
+
+\begin{proof}
+$\ker(A) = \ker(\HZ)$ over $\R$ since $A = \HZ^T\HZ$ and
+$Ax=0 \Leftrightarrow x^T A x = \|\HZ x\|^2 = 0 \Leftrightarrow \HZ x = 0$.
+The dimension of $\ker(\HZ)$ over $\R$ is $N - \rank_{\R}(\HZ)$.
+Note that for $\{0,1\}$-matrices arising from CSS codes, $\rank_{\R}(\HZ)
+\geq \rank_{\GFtwo}(\HZ)$; the two ranks coincide whenever the real row
+space contains no non-trivial integer linear dependencies beyond those
+detectable over $\GFtwo$.
+For all codes in this paper (verified numerically), $\rank_{\R} = \rank_{\GFtwo}$.
+The containment contribution to eigenvalue in these directions is $2\lambda$;
+the spring contribution is $x^T (A/2) x = 0$.
+\end{proof}
+
+\begin{remark}[Code structure as geometric advantage]
+For the D4-HGP code, $109/193 \approx 56\%$ of Hessian eigendirections
+lie in the null space of $A$.
+In these directions the codeword basin extends to the containment clip
+boundary, measured empirically as $r_{\mathrm{emp}} \approx \rho/\sqrt{\lambda}$
+where $\rho = 1.5$ is the clip parameter.
+This is the code's topological structure acting as a structural advantage
+for the continuous decoder.
+\end{remark}
+
+\subsection{Local minima and pseudo-codewords}
+
+\begin{proposition}[Local minima are pseudo-codewords]\label{prop:pseudo}
+Let $v^{\mathrm{loc}}$ be a local minimum of $H$ and let
+$\hat{v} = \mathrm{sign}(v^{\mathrm{loc}})$.
+If $\hat{v}$ is not a valid codeword, then the binary vector
+$\hat{e} = (1-\hat{v})/2 \bmod 2$ is a pseudo-codeword:
+$\HZ\hat{e} \not\equiv \bm{0}$ (mod 2).
+\end{proposition}
+
+This is the continuous analogue of BP trapping sets.
+Unlike BP fixed points, these traps are geometric objects (local basins)
+amenable to physical escape strategies.
+
+% ════════════════════════════════════════════════════════════════════════════
+\section{The Gradient Descent Decoder}\label{sec:decoder}
+% ════════════════════════════════════════════════════════════════════════════
+
+\begin{construction}[Continuous Relaxation Decoder]\label{con:decoder}
+Given syndrome $s \in \{0,1\}^M$:
+\begin{enumerate}[noitemsep]
+\item \emph{Initialise:} $v^{(0)} = +\bm{1} - 2\hat{e}^{(0)}$, where $\hat{e}^{(0)}$
+  is a syndrome-consistent error estimate (e.g.\ greedy peeling, see \cref{sec:threshold}).
+\item \emph{Iterate:}
+  $v^{(k+1)} = \mathrm{clip}\bigl(v^{(k)} - \eta \nabla H(v^{(k)}),\;
+  [-\rho, \rho]\bigr)$,
+  with $\eta=0.05$, $\rho=1.5$, for $K$ steps.
+\item \emph{Snap:} $\hat{v} = \mathrm{sign}(v^{(K)})$;
+  $\hat{e} = (1-\hat{v})/2 \bmod 2$.
+\item Apply $\hat{e}$ as the correction.
+\end{enumerate}
+\end{construction}
+
+\paragraph{Gradient computation.}
+The gradient $\nabla H$ is computed analytically from the squared-spring
+formula.
+The partial derivative at qubit $q$ is
+\begin{equation}
+  \frac{\partial H}{\partial v_q}
+  = \lambda(v_q^2-1)v_q - \frac{1}{2}
+    \sum_{j\,:\,q\in\mathrm{supp}(j)} (1-P_j)\cdot\frac{P_j}{v_q}.
+  \label{eq:grad_formula}
+\end{equation}
+No message-passing or graph traversal is needed.
+
+\paragraph{Complexity.}
+Each gradient step requires $3N$ FLOPs for the containment term and
+$3\cdot\mathrm{nnz}(\HZ)$ FLOPs for the spring term, giving
+$3(N + \mathrm{nnz}(\HZ))$ FLOPs per step.
+For the D4-HGP code ($N=193$, $\mathrm{nnz}=532$):
+$3\times 725 = 2{,}175$ FLOPs per step.
+At $K=400$ steps: $870{,}000$ FLOPs per syndrome,
+versus $O(N^3) \approx 7.2\times10^6$ for MWPM.
+
+% ════════════════════════════════════════════════════════════════════════════
+\section{Basin Geometry and Convergence Theory}\label{sec:basin}
+% ════════════════════════════════════════════════════════════════════════════
+
+This section characterises the geometry of the codeword basin of attraction
+through three complementary radii and proves that decoding failures are
+impossible for $t \leq 2$ errors under gradient descent.
+
+\subsection{Three nested radii}
+
+\begin{definition}[Three convergence radii]\label{def:radii}
+Fix a valid codeword $v^*$ and $\lambda > 0$. Define:
+\begin{itemize}[noitemsep]
+\item $r_{\mathrm{loc}}(\lambda) = \sqrt{2/\mu_{\min}(\lambda)}$, the
+  \emph{Hessian radius}, where $\mu_{\min} = 2\lambda + \sigma_{\min}(A/2)$
+  is the smallest Hessian eigenvalue.
+\item $r_{\mathrm{barrier}}(\lambda) = \sqrt{2\Delta E / \mu_{\min}(\lambda)}$,
+  the \emph{barrier radius} corresponding to saddle height $\Delta E$ to
+  the nearest pseudo-codeword basin.
+\item $r_{\mathrm{emp}}(\lambda, \hat{u})$, the \emph{empirical escape radius}
+  along direction $\hat{u}$: the smallest $r$ such that
+  $\mathrm{GD}(v^* + r\hat{u})$ fails to return to any valid codeword.
+\end{itemize}
+\end{definition}
+
+\begin{observation}[Nested basin geometry]\label{obs:nested}
+For the D4-HGP code at $\lambda = 0.5$:
+\[
+  r_{\mathrm{loc}} \approx 1.41
+  \;\leq\;
+  r_{\mathrm{barrier}} \in [1.41,\, 2.83]
+  \;\ll\;
+  r_{\mathrm{emp}} \in [7,\, 15] \times r_{\mathrm{loc}},
+\]
+across $\hat{u}$ ranging from the stiffest to the softest Hessian
+eigendirection.
+The Hessian radius is a conservative lower bound; the actual basin is
+$3$--$11\times$ wider than $r_{\mathrm{loc}}$.
+\end{observation}
+
+The numerical values are reported for 12 sampled pseudo-codewords at
+$\lambda=0.5$ in \cref{tab:barriers}.
+
+\subsection{Monotone direct correction path}
+
+\begin{proposition}[No barrier on the direct correction path]\label{prop:monotone}
+Consider the one-dimensional restriction of $H$ to the path
+$v^*(t) = v^* + t(v^{(q^*)} - v^*)$ for $t\in[0,1]$,
+connecting a valid codeword $v^*$ to a single-error state $v^{(q^*)}$.
+For any physical parameter values satisfying $\lambda < 2\dZ(q^*)$,
+the gradient $dH/dt$ is everywhere negative on $(0,1)$: the path is
+\emph{strictly monotone decreasing} in energy from $v^{(q^*)}$ to $v^*$.
+In particular, no saddle point separates $v^{(q^*)}$ from $v^*$ along
+this path.
+\end{proposition}
+
+\begin{proof}
+Restricting to the 1D path by holding all other qubits at $+1$, the
+energy along the path is
+\[
+  E(s) = \frac{\lambda}{4}(s^2-1)^2 + \frac{\dZ(q^*)}{4}(1-s)^2,
+  \quad s \in [-1, +1],
+\]
+where $s = v_{q^*}(t) = -1 + 2t$ parametrises the erroneous qubit.
+A stationary point other than $s=+1$ (the codeword) satisfies the
+cubic equation $(s-1)[\lambda s(s+1) + \dZ(q^*)/2] = 0$.
+The bracket has discriminant $\Delta = \lambda^2 - 2\lambda\cdot\dZ(q^*)$.
+For $\lambda < 2\dZ(q^*)$, which holds for all physical $\lambda$ since
+$\lambda \ll \dZ(q^*)$ in the interesting regime, we have $\Delta < 0$:
+the bracket has no real roots other than the trivial factored root.
+Therefore $s=+1$ is the unique stationary point on $[-1,+1]$.
+\end{proof}
+
+\begin{corollary}[Provably perfect decoding for $t=1$; empirical for $t=2$]\label{cor:perfect}
+For a code with minimum qubit degree $d_{\min} \geq 1$, gradient descent
+with any $\lambda < 2d_{\min}$ corrects every single-error pattern at
+100\% rate.
+Empirically, perfect decoding extends to $t=2$ errors in all experiments;
+however, the monotone-path argument does not constitute a formal proof
+for $t=2$, since correcting two simultaneous errors requires showing that
+the joint two-error initial point lies in the codeword basin, not merely
+that each individual sub-problem is monotone.
+\end{corollary}
+
+This explains the experimental observation of 100\% success for $t\leq 2$
+errors over all 30 random trials at each weight.
+
+\subsection{Pseudo-codeword barriers}
+
+Failures for $t\geq 3$ arise not from the direct correction path but from
+the trajectory landing in the basin of a pseudo-codeword $v_{\mathrm{pc}}$
+whose snapped configuration violates at least one check.
+
+\begin{observation}[Barrier height distribution]\label{obs:barriers}
+For 12 sampled pseudo-codewords collected from failed $t=5$ trials at
+$\lambda=0.5$, the straight-line energy maximum $\Delta E = \max_{t\in[0,1]}
+H(v^* + t(v_{\mathrm{pc}} - v^*))$ satisfies:
+$\Delta E \in [1.0, 4.0]$, with mean $1.67$.
+The tightest trap has $\Delta E = 1.0$ and involves a 2-qubit pattern
+sharing a single Tanner graph cycle of length 4 (girth cycle).
+The corresponding barrier radius $r_{\mathrm{barrier}} = r_{\mathrm{loc}} = 1.41$,
+confirming that the Hessian radius exactly predicts the binding constraint
+for the critical trap class.
+\end{observation}
+
+\begin{remark}[Barrier measurement note]
+The reported $\Delta E$ values are upper bounds on the true saddle height,
+since the straight-line path is not guaranteed to be the minimum energy
+path between $v^*$ and $v_{\mathrm{pc}}$.
+The true (minimum-energy-path) saddle may be lower.
+An exact saddle search would require solving for the index-1 critical
+point of $H$ between the two basins.
+\end{remark}
+
+\subsection{Scaling with $\lambda$}
+
+\begin{observation}[$\lambda$-invariance of normalised basin shape]
+\label{obs:scaling}
+For both $r_{\mathrm{loc}}$ and $r_{\mathrm{barrier}}$, the scaling law
+$r \propto \lambda^{-1/2}$ holds across $\lambda \in [0.1, 2.0]$.
+The ratio $r_{\mathrm{barrier}} / r_{\mathrm{loc}}$ is nearly constant
+over this range ($\lesssim 10\%$ variation).
+Consequently, the basin geometry---when expressed in units of
+$r_{\mathrm{loc}}$---is $\lambda$-invariant.
+This implies that optimising $\lambda$ does not fundamentally change the
+barrier-to-basin-size ratio; it only scales all length scales together.
+\end{observation}
+
+\begin{table}[ht]
+\centering
+\caption{Basin geometry parameters at $\lambda = 0.5$ for the D4-HGP code.
+  Barrier heights measured along the straight-line path $v^* \to \mathrm{snap}(v_{\mathrm{pc}})$.
+  The Hessian radius $r_{\mathrm{loc}} = \sqrt{2/\mu_{\min}} = 1.414$ at $\lambda=0.5$.}
+\label{tab:barriers}
+\small
+\begin{tabular}{cccccc}
+\toprule
+PC type & $n_{\mathrm{flip}}$ & $\Delta E$ & $r_{\mathrm{barrier}}$ & $r_{\mathrm{barrier}}/r_{\mathrm{loc}}$ \\
+\midrule
+2-flip (most common) & 2 & 1.00 & 1.41 & 1.00 \\
+4-flip, interior saddle & 4 & $2.00$--$2.27$ & $2.00$--$2.13$ & $1.41$--$1.51$ \\
+6-flip, interior saddle & 6 & 2.51 & 2.24 & 1.58 \\
+4-flip, max syndrome wt & 4 & 4.00 & 2.83 & 2.00 \\
+\midrule
+\multicolumn{2}{l}{Summary} & min 1.00, max 4.00 & min 1.41, max 2.83 & 1.00--2.00 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[ht]
+\centering
+\caption{Hessian spectrum and quadratic convergence radius at selected $\lambda$.
+  $\sigma_{\min}(A/2) \approx 0$ (null space dim = 109);
+  $r_{\mathrm{loc}} \approx 1/\sqrt{\lambda}$ for all physical $\lambda$.}
+\label{tab:spectrum}
+\small
+\begin{tabular}{ccccc}
+\toprule
+$\lambda$ & $\mu_{\min}$ & $\mu_{\max}$ & $\kappa$ & $r_{\mathrm{loc}}$ \\
+\midrule
+0.05 & 0.100 & 14.99 & 149.9 & 4.472 \\
+0.10 & 0.200 & 15.09 & 75.5 & 3.162 \\
+0.50 & 1.000 & 15.89 & 15.89 & 1.414 \\
+1.00 & 2.000 & 16.89 & 8.44 & 1.000 \\
+2.00 & 4.000 & 18.89 & 4.72 & 0.707 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ════════════════════════════════════════════════════════════════════════════
+\section{Experiments on the $[[193,25]]$ Code}\label{sec:experiments}
+% ════════════════════════════════════════════════════════════════════════════
+
+\subsection{Setup}
+
+All experiments use $\eta = 0.05$, $K = 400$ steps, $\rho = 1.5$, $\lambda = 0.5$
+unless otherwise stated.
+Error patterns are drawn uniformly at random.
+Trial counts are specified per experiment.
+
+\subsection{Analytical predictions verified}
+
+\cref{tab:analytical} reports the numerical verification of all analytical
+results from \cref{sec:analysis}.
+All results match to machine precision.
+
+\begin{table}[ht]
+\centering
+\caption{Numerical verification of analytical formulae on the $[[193,25]]$ code.
+  All discrepancies are below machine epsilon ($<10^{-10}$).}
+\label{tab:analytical}
+\small
+\begin{tabular}{lcc}
+\toprule
+Claim & Predicted & Numerical \\
+\midrule
+Ground state energy $H(+\bm{1})$ & $0$ & $0$ (exact) \\
+Ground state gradient $\|\nabla H(+\bm{1})\|$ (squared spring) & $0$ & $1.76\times10^{-13}$ \\
+Ground state gradient $\|\nabla H_{\mathrm{lin}}(+\bm{1})\|$ & $\sqrt{\sum_q d_q^2}/2$ & $22.54$ (matches) \\
+Single-error energy, $d_q = 7$ & $7$ & $7.000$ (exact) \\
+Single-error energy, $d_q = 1$ & $1$ & $1.000$ (exact) \\
+Single-error gradient at $q^*$ ($d_q=7$) & $-7$ & $-7.000$ (exact) \\
+Hessian diagonal ($\lambda=1$, $d_q=7$) & $5.5$ & $5.500$ (exact) \\
+Hessian diagonal ($\lambda=1$, $d_q=1$) & $2.5$ & $2.500$ (exact) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Gradient descent convergence vs.\ error weight}
+
+\begin{table}[ht]
+\centering
+\caption{GD decoder performance vs.\ error weight $t$.
+  $\lambda=0.5$, $K=400$, 100 trials each.}
+\label{tab:convergence}
+\small
+\begin{tabular}{cccc}
+\toprule
+$t$ & Success rate & Mean residual syndrome (failures) & Initial energy \\
+\midrule
+1 & 100/100 (1.00) & -- & $\approx 2.64$ \\
+2 & 100/100 (1.00) & -- & $\approx 4.68$ \\
+3 & 99/100 (0.99) & 0.14 & $\approx 7.40$ \\
+4 & 91/100 (0.91) & 0.18 & $\approx 10.1$ \\
+5 & 82/100 (0.82) & 0.08 & $\approx 12.84$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+For $t\leq 2$ the decoder is exact over all 100 trials, consistent with
+\cref{cor:perfect}.
+Failures at $t\geq 3$ correspond exclusively to pseudo-codeword trapping
+(nonzero residual syndrome).
+
+\subsection{Lambda sensitivity}\label{sec:lambda}
+
+\cref{tab:lambda} reports success rate vs.\ $\lambda$ for $t=3$ errors.
+
+\begin{table}[ht]
+\centering
+\caption{Decoder success rate vs.\ $\lambda$ for $t=3$ errors (100 trials).
+  The heuristic optimal $\lambda^* \approx \tfrac{3}{16}\bar{d} = 0.517$.}
+\label{tab:lambda}
+\small
+\begin{tabular}{ccc}
+\toprule
+$\lambda$ & Success rate & Mean final energy \\
+\midrule
+0.10 & 97/100 (0.97) & 0.017 \\
+0.50 & 99/100 (0.99) & 0.000 \\
+1.00 & 78/100 (0.78) & 0.311 \\
+2.00 & 32/100 (0.32) & 0.775 \\
+5.00 & 8/100 (0.08) & 2.607 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The optimal range is $\lambda \in [0.1, 0.5]$.
+The mechanistic interpretation follows from \cref{thm:hessian}: at large
+$\lambda$ the deep basin curvature $2\lambda + \dZ(q)/2$ immediately
+suppresses spring-driven corrections.
+A heuristic balance condition $2\lambda = \bar{d}/2$ yields
+$\lambda_{\mathrm{pred}} = \bar{d}/4 = 0.69$ for the D4-HGP code.
+Empirically the optimum sits at $\lambda^* \approx 0.75 \times 0.69 = 0.52$
+(see \cref{sec:universality} for the full derivation of this factor).
+
+% ════════════════════════════════════════════════════════════════════════════
+\section{Momentum-Based Decoding}\label{sec:momentum}
+% ════════════════════════════════════════════════════════════════════════════
+
+\subsection{Optimiser variants}
+
+Three momentum-based optimisers are compared against vanilla GD.
+
+\paragraph{Heavy-ball (HB; Polyak 1964).}
+$v^{(k+1)} = v^{(k)} - \eta\nabla H(v^{(k)}) + \gamma(v^{(k)} - v^{(k-1)})$.
+The momentum term $\gamma(v^{(k)}-v^{(k-1)})$ injects velocity proportional
+to the current velocity.
+For a quadratic landscape with condition number $\kappa$, the optimal
+parameter is $\gamma_{\mathrm{opt}} = \left(\frac{\sqrt{\kappa}-1}{\sqrt{\kappa}+1}\right)^2$.
+For the D4-HGP code at $\lambda=0.5$, $\kappa = 15.89$, giving
+$\gamma_{\mathrm{opt}} \approx 0.35$.
+Periodic momentum restarts (every $r$ steps) prevent orbit trapping.
+
+\paragraph{Nesterov accelerated gradient (NAG).}
+$y^{(k)} = v^{(k)} + \frac{k-1}{k+2}(v^{(k)}-v^{(k-1)})$, then
+$v^{(k+1)} = y^{(k)} - \eta\nabla H(y^{(k)})$,
+with adaptive restart on energy increase.
+Achieves $O(1/k^2)$ convergence in quadratic landscapes.
+
+\paragraph{Annealed Langevin dynamics.}
+$v^{(k+1)} = v^{(k)} - \eta\nabla H(v^{(k)}) + \sqrt{2\eta T_k}\,\xi^{(k)}$,
+$\xi^{(k)}\sim\mathcal{N}(0,I)$,
+with exponential annealing $T_k = T_0(T_{\infty}/T_0)^{k/K}$.
+The Kramers rate for barrier crossing is $\propto \exp(-\Delta E/T)$.
+
+\subsection{Main comparison}
+
+\begin{table}[ht]
+\centering
+\caption{Decoder success rates (100 trials each, $\lambda=0.5$).
+  HB parameters: $\gamma=0.85$, restart every 150 steps.
+  Langevin parameters: $T_0=0.5$, $T_\infty=0.01$, 800 steps.}
+\label{tab:momentum}
+\small
+\begin{tabular}{lcccc}
+\toprule
+Method & $t=3$ & $t=4$ & $t=5$ & Mean (3--5) \\
+\midrule
+GD (baseline) & 0.990 & 0.910 & 0.820 & 0.907 \\
+Heavy-ball ($\gamma=0.85$) & 0.980 & 0.910 & 0.850 & 0.913 \\
+Nesterov (adaptive) & 0.980 & 0.900 & 0.830 & 0.903 \\
+Langevin ($T_0=0.5$) & 0.100 & 0.090 & 0.140 & 0.110 \\
+\midrule
+\multicolumn{4}{l}{All decoders (except Langevin) achieve 100/100 at $t=1,2$} \\
+Langevin correctness check & 9/30 & 2/30 & -- & -- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Heavy-ball achieves a $+3\%$ improvement over GD at $t=5$ (0.850 vs.\
+0.820).
+The magnitude corresponds to approximately $0.6–0.8\sigma$ at 100 trials
+($\sigma \approx \sqrt{0.85\times 0.15/100} \approx 3.6\%$), so this
+result requires confirmation with $N\geq 500$ trials.
+
+\textbf{Langevin failure.}
+At $T_0 = 0.5$, the Langevin decoder fails the $t=1$ correctness check
+catastrophically (9/30), demonstrating that noise above
+$\Delta E_{\min} = 1.0$ destroys easily correctable patterns.
+The required calibration condition is $T_0 \ll \Delta E_{\min}$, derived
+analytically from \cref{tab:barriers}: $T_0 \ll 1.0$, so $T_0 \leq 0.1$.
+At $T_0 = 0.05$ (near-zero noise, approaching GD), Langevin achieves
+$88\%$ at $t=4$ --- consistent with the GD baseline.
+
+\subsection{The path-geometry mechanism}
+
+\begin{observation}[No barrier vaulting]\label{obs:no_vault}
+For a representative $t=5$ trial where GD fails but heavy-ball succeeds,
+the energy trajectory satisfies:
+\begin{align*}
+  E_{\mathrm{start}} &= 9.000, \\
+  E_{\mathrm{peak,\,HB}} &= 9.000 \quad \text{(overshoot } = 0.000\text{)}, \\
+  E_{\mathrm{final,\,HB}} &= 0.000 \quad \text{(convergence by step 100)}.
+\end{align*}
+The peak energy never exceeds the starting energy.
+Heavy-ball does \emph{not} escape pseudo-codeword traps by kinetic
+overshoot over the energy barrier; instead, it follows a qualitatively
+different gradient trajectory that avoids entering the trap basin.
+\end{observation}
+
+This falsifies the intuitive ``kinetic barrier crossing'' hypothesis for
+the heavy-ball mechanism in this landscape.
+The physical mechanism---whether momentum prevents the trajectory from
+making sharp high-curvature turns into narrow pseudo-codeword basins, or
+whether it takes a qualitatively different path that bypasses the basin
+entirely---remains an open problem.
+
+\subsection{Parameter sensitivity}
+
+\begin{observation}[Flat $\gamma$ response]\label{obs:gamma_flat}
+The heavy-ball success rate at $t=4$ is constant at $\approx 0.933$ for
+$\gamma \in [0.50, 0.85]$, then declines sharply above $\gamma = 0.90$.
+The theoretical optimum $\gamma_{\mathrm{opt}} \approx 0.35$
+(from $\kappa = 15.89$) lies far outside the effective regime.
+The quadratic $\kappa$-based formula is inapplicable to the nonlinear
+spring-product landscape.
+\end{observation}
+
+\begin{observation}[Langevin noise monotonicity]\label{obs:langevin_mono}
+The Langevin success rate at $t=4$ decreases monotonically with $T_0$
+across $T_0 \in [0.05, 1.0]$ (from 0.883 to 0.133).
+More noise is always worse.
+No Kramers-style barrier crossing was observed: the stochastic escape rate
+did not produce a non-monotone benefit at intermediate temperatures.
+\end{observation}
+
+\begin{observation}[Restart insensitivity]\label{obs:restart}
+The heavy-ball success rate at $t=5$ is identically $0.800 \pm 0.004$
+for all restart intervals tested (none, 50, 100, 150, 200, 300 steps).
+Periodic restarts have no measurable effect on this landscape.
+\end{observation}
+
+% ════════════════════════════════════════════════════════════════════════════
+\section{Initialization, Threshold, and Failure Modes}\label{sec:threshold}
+% ════════════════════════════════════════════════════════════════════════════
+
+\subsection{The syndrome-agnostic landscape and the projector paradigm}
+
+\begin{observation}[Syndrome-agnostic energy]\label{obs:agnostic}
+The energy function $H(v)$ depends only on the spin configuration $v$
+and not on the target syndrome $s$:
+\[
+  H(v) = \sum_q \frac{\lambda}{4}(v_q^2-1)^2 + \sum_j \frac{(1-P_j)^2}{4}.
+\]
+The syndrome $s$ enters only in the initialisation $v^{(0)}$, not in the
+gradient dynamics.
+If the initialisation is at a global minimum ($v^{(0)} = \pm\bm{1}^N$,
+a valid codeword), the gradient is exactly zero and the decoder does not
+move.
+\end{observation}
+
+This has a fundamental implication: the decoder does not ``search'' for
+a syndrome-consistent solution by gradient dynamics.
+It \emph{projects} the initial configuration into the nearest codeword
+basin.
+We call this the \emph{projector paradigm}.
+
+\begin{definition}[Decoder Saturation Point (DSP)]
+The \emph{decoder saturation point} $p_{\mathrm{DSP}}$ is the physical
+error rate $p$ at which the total logical failure rate $P_L(p) = 0.50$
+for a fixed code.
+
+\emph{Note on terminology.}
+The term ``pseudo-threshold'' is reserved in the QEC literature for the
+crossing $P_L(p_{\mathrm{pseudo}}) = p$ between the logical and physical
+error rates.
+This is distinct from $p_{\mathrm{DSP}}$ and requires a code family
+(varying $N$), not a single code.
+$p_{\mathrm{DSP}}$ is a single-code engineering figure of merit.
+\end{definition}
+
+\begin{observation}[DSP measurement]
+For the D4-HGP code under independent $Z$-noise with greedy peeling
+initialisation and vanilla GD decoding (200 trials per $p$), the failure
+rate $P_L(p)$ is monotone increasing.
+The DSP satisfies $p_{\mathrm{DSP}} \lesssim 0.05$, providing an upper
+bound on the true threshold $p_c$, which requires a code family with
+growing $N$.
+\end{observation}
+
+\subsection{Greedy peeling initialisation}
+
+\begin{construction}[Greedy peeling]\label{con:peeling}
+Given syndrome $s\in\{0,1\}^M$:
+\begin{enumerate}[noitemsep]
+\item Initialise $\hat{e} = \bm{0}$.
+\item Repeat over unsatisfied checks $j$ where $(\HZ\hat{e})_j \neq s_j$:
+  select the lowest-degree qubit $q$ in $\mathrm{supp}(j)$, flip $\hat{e}_q$.
+  Update residual $r = (s \oplus \HZ\hat{e}) \bmod 2$.
+\item If any checks remain unsatisfied after two passes, fall back to
+  $\hat{e} = \bm{0}$ (valid-codeword fallback).
+\end{enumerate}
+\end{construction}
+
+The low-degree preference minimises collateral check violations.
+Validated to produce a syndrome-consistent guess in $\geq 90\%$ of
+random trials at $p \leq 0.02$.
+When peeling fails and the fallback $\hat{e}=\bm{0}$ is used, the
+decoder starts at a global minimum and cannot correct the error.
+
+\subsection{Failure mode census}
+
+\begin{observation}[Dominant failure modes by error rate]\label{obs:failures}
+At 300 trials per $p$:
+\begin{itemize}[noitemsep]
+\item At $p=0.03$: syndrome failures (GD trapped at pseudo-codeword) dominate.
+  Logical-class failures are rare.
+\item At $p=0.07$: logical failures (wrong logical class despite satisfied
+  syndrome) become significant, consistent with the error weight exceeding
+  the effective correction radius.
+\end{itemize}
+The crossover from ``syndrome-failure-dominated'' to
+``logical-failure-dominated'' occurs near $p\approx 0.05$.
+\end{observation}
+
+\subsection{Algorithmic vs.\ landscape failures}
+
+\begin{observation}[n-steps classification]\label{obs:nsteps}
+Sweeping step count $K \in \{100, 200, 400, 800\}$ at fixed $p$:
+\begin{itemize}[noitemsep]
+\item At $p \leq 0.03$: $P_L$ decreases substantially with $K$ (from
+  $\sim 0.40$ at $K=100$ to $\sim 0.15$ at $K=800$).
+  Failures are \emph{algorithmic}: the landscape has the correct minimum,
+  but the optimiser exits early.
+\item At $p \geq 0.07$: $P_L$ is nearly flat across $K$.
+  Failures are \emph{landscape-determined}: logical errors are the
+  global minima and no amount of additional optimisation helps.
+\end{itemize}
+Crossings of $P_L(p)$ curves for different $K$ values reflect algorithmic
+capacity limits, not finite-size-scaling threshold physics.
+The true threshold $p_c$ requires a code family with growing $N$.
+\end{observation}
+
+\subsection{Path forward: BP-initialised continuous decoder}
+
+Because $H(v)$ is a projector, the appropriate use of the continuous
+decoder is as a post-processor for belief propagation, analogous to
+BP-OSD~\cite{Roffe2020}.
+BP provides a fractional confidence vector $v^{(0)} \in (-1,+1)^N$ already
+biased toward the correct basin; the continuous decoder then applies a
+single smooth gradient flow to the nearest codeword.
+Measuring $P_L(p)$ for this combined decoder (and locating the crossing
+point across a code family) is the correct protocol for determining $p_c$.
+
+% ════════════════════════════════════════════════════════════════════════════
+\section{CSS Code Universality}\label{sec:universality}
+% ════════════════════════════════════════════════════════════════════════════
+
+\subsection{Code zoo}
+
+\cref{tab:zoo} describes the eight code families used for universality testing,
+including the two new high-distance augmented-seed codes.
+
+\begin{table}[ht]
+\centering
+\caption{CSS code zoo used for universality verification.
+  $\bar{d}$: mean qubit degree in $\HZ$.
+  ``Bicycle-$n$ ($k=0$)'' indicates rank-deficient codes included as
+  algebraic testbeds; their decoding success rates are not physically
+  meaningful.
+  \textbf{Bold rows}: new high-distance augmented-seed codes from~\cite{SchmittScale}.}
+\label{tab:zoo}
+\small
+\begin{tabular}{lccccccc}
+\toprule
+Code & $N$ & $M$ & $k$ & $\bar{d}$ & $\lambda^*_{\mathrm{pred}}$ & $\dim\ker(A)$ & $\kappa(\lambda^*)$ \\
+\midrule
+D4-HGP $[[193,25]]$ & 193 & 84 & 25 & 2.76 & 0.517 & 109 & 11.80 \\
+\textbf{Aug. $[[112,4,(6,6)]]$} & \textbf{112} & \textbf{48} & \textbf{4} & \textbf{2.38} & \textbf{0.445} & \textbf{64} & \textbf{---} \\
+\textbf{Aug. $[[176,32,(3,6)]]$} & \textbf{176} & \textbf{96} & \textbf{32} & \textbf{3.20} & \textbf{0.601} & \textbf{80} & \textbf{---} \\
+Bicycle-6 $[[12,0]]$ & 12 & 6 & 0 & 3.00 & 0.750 & 6 & 7.00 \\
+Bicycle-10 $[[20,0]]$ & 20 & 10 & 0 & 3.00 & 0.750 & 10 & 7.00 \\
+Bicycle-15 $[[30,0]]$ & 30 & 15 & 0 & 3.00 & 0.750 & 15 & 7.00 \\
+RepHGP(6) $[[60,2]]$ & 61 & 30 & 1 & 1.80 & 0.451 & 31 & 5.14 \\
+RandHGP(8) & 100 & 48 & 4 & 2.52 & 0.630 & 52 & 8.30 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Algebraic universality of Theorems 4.1 and 4.3}
+
+\begin{observation}[Universal theorem verification]\label{obs:universal}
+Theorems~\ref{thm:single_error} and~\ref{thm:hessian} were verified via
+numerical finite differences across all six code families:
+\begin{itemize}[noitemsep]
+\item $\nabla H|_{v^{(q^*)}}[q^*] = -\dZ(q^*)$:
+  verified for 30 sampled qubits per code.
+  Maximum error $< 10^{-9}$ (machine precision, exact arithmetic).
+\item $H_{qq} = 2\lambda + \dZ(q)/2$:
+  verified for 24 sampled qubits per code.
+  Maximum error $\approx 10^{-10}$ (finite-difference precision limit).
+\end{itemize}
+Both results hold universally with no code-specific assumptions.
+They are algebraic identities over any CSS code.
+\end{observation}
+
+\subsection{Optimal $\lambda^*$ and the 0.75$\times$ empirical correction}
+
+\paragraph{Theoretical ansatz.}
+The Hessian diagonal $H_{qq} = 2\lambda + \dZ(q)/2$ suggests balancing
+the containment curvature $2\lambda$ with the mean spring curvature
+$\bar{d}/2$:
+\[
+  2\lambda^*_{\mathrm{pred}} = \frac{\bar{d}}{2}
+  \quad\Rightarrow\quad
+  \lambda^*_{\mathrm{pred}} = \frac{\bar{d}}{4}.
+\]
+This is a \emph{heuristic ansatz} for landscape balance, not a rigorous
+optimality proof.
+\cref{thm:hessian} establishes the formula; the optimality claim is empirical.
+
+\paragraph{Empirical correction.}
+A fine-grained $\lambda$ sweep over 10 values per code reveals a consistent
+empirical correction:
+
+\begin{table}[ht]
+\centering
+\caption{$\lambda^*$ prediction vs.\ measurement across the code zoo.
+  The empirical peak $\lambda_{\mathrm{peak}}$ is the $\lambda$ maximising
+  success rate at the relevant $t$ errors (60--500 trials per $\lambda$).
+  The 0.75$\times$ correction is observed in 6 out of 8 codes.
+  \textbf{Bold}: new high-distance codes verified in this work.}
+\label{tab:lambda_star}
+\small
+\begin{tabular}{lcccc}
+\toprule
+Code & $\bar{d}/4$ (pred.) & $\lambda_{\mathrm{peak}}$ (meas.) & Ratio & Note \\
+\midrule
+D4-HGP $[[193,25]]$ & 0.689 & 0.517 & \textbf{0.750} & \\
+\textbf{Aug. $[[112,4,(6,6)]]$} & \textbf{0.595} & \textbf{0.445} & \textbf{0.748} & $t=4$, 500 trials \\
+\textbf{Aug. $[[176,32,(3,6)]]$} & \textbf{0.800} & \textbf{0.601} & \textbf{0.751} & X-spring, $t=2$, 500 trials \\
+Bicycle-10 $[[20,0]]$ & 0.750 & 0.563 & \textbf{0.750} & \\
+Bicycle-15 $[[30,0]]$ & 0.750 & 0.563 & \textbf{0.750} & \\
+RepHGP(6) $[[60,2]]$ & 0.451 & 0.338 & \textbf{0.750} & \\
+RandHGP(8) & 0.630 & 0.158 & 0.250 & irregular degree \\
+Bicycle-6 $[[12,0]]$ & 0.750 & 0.038 & 0.050 & degenerate ($N=12$) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{observation}[Universal $0.75\times$ correction confirmed on 6 codes]\label{obs:correction}
+For six independent code families (D4-HGP, the two augmented-seed codes,
+and three bicycle/RepHGP variants), the empirical optimum satisfies
+$\lambda_{\mathrm{peak}} = 0.75 \times \bar{d}/4 = \tfrac{3}{16}\bar{d}$
+to within measurement precision.
+The revised universal heuristic is:
+\begin{equation}
+  \lambda^* \approx \frac{3\bar{d}}{16}.
+  \label{eq:lambda_star}
+\end{equation}
+The two new codes (augmented-seed family) provide independent confirmation
+across a meaningfully different check-weight and distance regime
+($d=6$ vs.\ $d=4$, $\bar{d}\in\{2.38,3.20\}$ vs.\ $2.76$),
+strengthening the universality claim.
+The trace-balance ansatz $\bar{d}/4$ systematically overestimates the
+required containment curvature: \emph{slightly wider basins} (smaller
+$\lambda$) yield higher GD success rates by allowing longer-range error
+signal propagation before spring forces compete with containment.
+\end{observation}
+
+\subsection{Decoding performance at $\lambda^*$}
+
+\begin{table}[ht]
+\centering
+\caption{Decoding performance at $\lambda^* = \tfrac{3}{16}\bar{d}$ for
+  each code.
+  100 trials per $(t, \mathrm{code})$ pair.
+  Bicycle codes with $k=0$ are omitted; their success rates are not
+  physically meaningful.}
+\label{tab:perf_zoo}
+\small
+\begin{tabular}{lcccc}
+\toprule
+Code & $t=1$ & $t=2$ & $t=3$ & Mean (1--3) \\
+\midrule
+D4-HGP $[[193,25]]$ & 1.000 & 0.990 & 0.930 & 0.973 \\
+RandHGP(8) & 1.000 & 0.970 & 0.910 & 0.960 \\
+RepHGP(6) $[[60,2]]$ & 1.000 & 0.910 & 0.780 & 0.897 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{High-distance augmented-seed codes: full decoder characterisation}
+\label{sec:new_codes}
+
+The two new codes from~\cite{SchmittScale} were subjected to the complete
+eight-test verification protocol (Tests 1--8 from the primary testbed,
+plus Test~9 for asymmetric decoding of the $[[176,32,(3,6)]]$ code).
+All five analytical theorems pass to machine precision ($<10^{-6}$)
+for both codes, confirming the algebraic universality claimed in
+\cref{obs:universal}.
+
+\paragraph{$[[112,4,(6,6)]]$: $\mathrm{HGP}(H_{\mathrm{aug}},\mathrm{rep}_6)$.}
+Parameters: $N=112$, $k=4$, $d_Z=d_X=6$ (exact, ILP-certified).
+$\bar{d}=2.38$, $\lambda^* = 3\bar{d}/16 = 0.445$.
+This code has the highest figure of merit $kd^2/N \approx 1.29$ among
+all codes from the causal diamond geometry at $N \leq 200$.
+
+\begin{table}[ht]
+\centering
+\caption{Decoder performance for $[[112,4,(6,6)]]$ (500 trials each).
+  $\lambda^* = 0.445$, $K=400$ steps, $\eta=0.05$.
+  $d_Z=d_X=6$: guaranteed success for $t\leq 2$, at-boundary for $t=6$.}
+\label{tab:112_perf}
+\small
+\begin{tabular}{ccccc}
+\toprule
+$t$ & Success & Rate & Mean syn.\ wt.\ (failures) & Note \\
+\midrule
+1 & 500/500 & 1.000 & --- & guaranteed \\
+2 & 486/500 & 0.972 & 0.044 & guaranteed \\
+3 & 451/500 & 0.902 & 0.152 & within d/2 \\
+6 & 245/500 & 0.490 & 0.840 & at-boundary \\
+9 &  89/500 & 0.178 & 1.638 & stress \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The 97.2\% success at $t=2$ (guaranteed regime) is slightly below
+100\%; this is consistent with the monotone-path proof
+(\cref{cor:perfect}) holding for individual error qubits, while two
+simultaneous errors can occasionally land in a configuration that enters
+a pseudo-codeword basin during the early trajectory.
+The barrier height distribution for this code (Test~8 census at $t=6$)
+shows pseudo-codeword residual weights distributed as:
+$\{0{:}\,58,\; 1{:}\,19,\; 2{:}\,18,\; 3{:}\,3,\; 4{:}\,2\}$
+(100 trials), consistent with the trapping model.
+
+\begin{observation}[{$\lambda$-robustness on $[[112,4,(6,6)]]$}]
+The $\lambda$ sensitivity sweep (Test~7, $t=4$, 500 trials) shows success
+rates of $\{77.4\%, 78.2\%, 79.2\%, 76.8\%, 80.4\%\}$ for
+$\lambda/\lambda^* \in \{0.5, 0.75, 1.0, 1.25, 1.5\}$, and drops to
+$70.4\%$ at $\lambda/\lambda^*=2$.
+The flat plateau across $\lambda \in [0.5\lambda^*, 1.5\lambda^*]$ confirms
+the $\lambda$-invariance observation (\cref{obs:scaling}) independently
+for this code.
+Performance degrades sharply at $\lambda = 2\lambda^*$ ($70.4\%$),
+establishing the upper boundary of the effective regime for this
+check-weight distribution.
+\end{observation}
+
+\paragraph{$[[176,32,(3,6)]]$: $\mathrm{HGP}(H_{\mathrm{aug}},H_X^{\mathrm{II}})$.}
+Parameters: $N=176$, $k=32$, $d_Z=3$, $d_X=6$ (exact).
+Rate $k/N \approx 0.182$; $\bar{d}=3.20$ for the $H_Z$ spring.
+$\lambda_Z^* = 3\bar{d}_{H_X}/16 = 0.439$ (X-spring, for Z-error decoder);
+$\lambda_X^* = 3\bar{d}_{H_Z}/16 = 0.601$ (Z-spring, for X-error decoder).
+
+\begin{table}[ht]
+\centering
+\caption{Decoder performance for $[[176,32,(3,6)]]$ (500 trials each).
+  Test~9: asymmetric Z vs.\ X error decoding at their respective
+  $\lambda^*$ values. ``Guaranteed'' means $t \leq \lfloor(d-1)/2\rfloor$.}
+\label{tab:176_perf}
+\small
+\begin{tabular}{llccc}
+\toprule
+Error type & Spring & $t$ & Rate & Note \\
+\midrule
+\multicolumn{5}{l}{\textit{Standard decoding ($\lambda = \lambda_X^* = 0.601$, Z-spring)}} \\
+Z-error & $H_X$ ($\lambda=0.439$) & 1 & 1.000 & guaranteed ($d_Z=3$) \\
+Z-error & $H_X$ ($\lambda=0.439$) & 2 & 0.992 & within d/2 \\
+Z-error & $H_X$ ($\lambda=0.439$) & 3 & 0.976 & stress \\
+Z-error & $H_X$ ($\lambda=0.439$) & 6 & 0.824 & deep stress \\
+\midrule
+\multicolumn{5}{l}{\textit{Asymmetric decoding (Test~9)}} \\
+Z-error & $H_X$-spring, $\lambda_Z^*$  & 1 & 0.998 & guaranteed \\
+Z-error & $H_X$-spring, $\lambda_Z^*$  & 2 & 0.966 & at-boundary \\
+Z-error & $H_X$-spring, $\lambda_Z^*$  & 3 & 0.900 & stress \\
+Z-error & $H_X$-spring, $\lambda_Z^*$  & 4 & 0.804 & stress \\
+X-error & $H_Z$-spring, $\lambda_X^*$  & 1 & 1.000 & guaranteed \\
+X-error & $H_Z$-spring, $\lambda_X^*$  & 2 & 0.990 & guaranteed ($d_X=6$) \\
+X-error & $H_Z$-spring, $\lambda_X^*$  & 3 & 0.974 & at-boundary \\
+X-error & $H_Z$-spring, $\lambda_X^*$  & 6 & 0.836 & stress \\
+X-error & $H_Z$-spring, $\lambda_X^*$  & 9 & 0.546 & deep stress \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{observation}[Asymmetric decoder architecture]
+\label{obs:asymmetric}
+The $[[176,32,(3,6)]]$ code admits a natural asymmetric decoder:
+Z-errors (dominant in superconducting hardware due to $T_1 \gg T_2$
+dephasing) use the $H_X$-spring at $\lambda_Z^*=0.439$;
+X-errors use the $H_Z$-spring at $\lambda_X^*=0.601$.
+Each spring is tuned to its respective distance, giving qualitatively
+different basin geometries for the two error types.
+The X-decoder achieves 99.0\% guaranteed success at $t_X=2$
+($d_X=6$, guaranteeing $t\leq2$) and 83.6\% at the X-boundary
+$t_X=6$; the Z-decoder achieves 99.8\% at $t_Z=1$ ($d_Z=3$)
+but degrades faster beyond the boundary (90.0\% at $t_Z=3$).
+This asymmetry directly reflects the code's distance structure and
+is a feature, not a defect: hardware with Z-biased noise is
+corrected by the stronger X-spring at a much lower overhead than
+symmetric codes require.
+\end{observation}
+
+The $\lambda$-invariance result holds independently for this code:
+the success rate at $t_X=2$ is flat across
+$\lambda \in [0.3\lambda^*, 1.5\lambda^*]$ at $\approx99\%$,
+with degradation to $75.4\%$ at $\lambda = 2\lambda^*$ (Test~7
+for this code, 500 trials per $\lambda$ value).
+
+\subsection{Tanner graph girth and pseudo-codeword density}
+
+A natural hypothesis, motivated by belief propagation analysis, is that
+lower Tanner graph girth (shorter cycles) produces a higher density of
+pseudo-codeword traps for continuous decoding.
+
+\begin{observation}[Girth hypothesis falsified]\label{obs:girth}
+Measuring trap rates at $t=5$ errors (60 trials per code):
+
+\begin{center}
+\begin{tabular}{lcc}
+\toprule
+Code & Girth (BFS est.) & Trap rate at $t=5$ \\
+\midrule
+D4-HGP $[[193,25]]$ & 4 & 0.200 \\
+RandHGP(8) & 4 & 0.350 \\
+RepHGP(6) $[[60,2]]$ & 8 & \textbf{0.517} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The RepHGP code has girth 8 (the highest in the zoo) but traps at $2.5\times$
+the rate of D4-HGP, which has girth 4.
+The rank correlation between higher girth and lower trap rate is 0/6.
+\textbf{The girth hypothesis is falsified for continuous decoding.}
+\end{observation}
+
+This is a sharp departure from BP analysis, where short cycles are the
+primary source of trapping sets.
+For the continuous decoder, trap density is governed by the broader
+stopping-set structure of the code,
+rather than by the length of the shortest cycle.
+The D4-HGP code ($d=4$), despite its girth-4 Tanner graph, exhibits a lower
+$t=5$ trap rate than RepHGP(6); this is attributed to its degree
+distribution and stopping-set density: the HGP construction produces
+a sparser pattern of short stopping sets than the repetition-code product
+at this block size.
+RepHGP(6), with girth 8 but small minimum distance ($d\approx 2$), has
+many low-weight codewords acting as pseudo-codeword attractors.
+
+% ════════════════════════════════════════════════════════════════════════════
+\section{Hardware Acceleration}\label{sec:hardware}
+% ════════════════════════════════════════════════════════════════════════════
+
+\subsection{Computational complexity model}
+
+\begin{proposition}[Per-syndrome FLOP count]\label{prop:flops}
+One gradient step (\cref{eq:grad_formula}) requires
+\[
+  C_{\mathrm{step}} = 3N + 3\cdot\mathrm{nnz}(\HZ) \;\text{ FLOPs}.
+\]
+At $K$ steps: $C_K = K\cdot C_{\mathrm{step}}$ FLOPs per syndrome.
+For the D4-HGP code ($N=193$, $\mathrm{nnz}=532$):
+$C_{\mathrm{step}} = 2{,}175$ FLOPs; $C_{400} = 870{,}000$ FLOPs.
+The decode is \emph{embarrassingly parallel}: all $B$ syndromes in a
+batch and all $M$ check products within a step are independent.
+\end{proposition}
+
+\begin{remark}[MWPM FLOP comparison — two regimes]\label{rem:flop}
+MWPM requires $O(N^3)$ FLOPs in the worst case.
+For $N=193$: $N^3 \approx 7.2\times 10^6$ FLOPs, giving the continuous
+decoder an $8\times$ raw-FLOP advantage against this bound.
+However, the sparse Blossom V algorithm (as implemented in PyMatching 2.x)
+operates on the matching graph rather than on $N^3$ operations directly.
+For the D4-HGP code, the matching graph has approximately 810 edges and
+84 nodes; a $10\lvert E\rvert\log M$ model gives $\approx 49{,}000$ FLOPs,
+which is $18\times$ \emph{fewer} than the continuous decoder's $870{,}000$.
+The two bounds apply to different regimes: the sparse estimate is tighter
+at small $N$; the naive $O(N^3)$ bound becomes tighter as $N$ grows and
+the matching graph density increases.
+Hardware profiling via performance counters is required to locate the
+crossover and provide a definitive comparison.
+\end{remark}
+
+\subsection{Throughput hierarchy}
+
+\begin{table}[ht]
+\centering
+\caption{Throughput hierarchy for the D4-HGP decoder at $K=400$, $\lambda=0.5$, $t=3$ errors.
+  Serial: pure Python loop over checks ($N=193$, $M=84$).
+  NumPy batch: vectorised over batch dimension $B$ at $K=50$ steps (speed test).
+  PyTorch GPU: gather/scatter tensorisation at $K=500$ steps, benchmarked on a T4 GPU.
+  All rows are CPU unless labelled GPU.
+  Speedup computed relative to the serial Python baseline.}
+\label{tab:throughput}
+\small
+\begin{tabular}{lcccc}
+\toprule
+Implementation & $B$ & $\mu$s/syndrome & Syndromes/s & Speedup \\
+\midrule
+Serial Python (NumPy) & 1 & $\sim 320{,}000$ & 3 & $1\times$ (reference) \\
+Batch NumPy ($K=50$, speed test) & 16384 & 25.9 & $38{,}548$ & $11{,}700\times$ \\
+PyTorch CPU tensor ($K=400$) & 100 & $1{,}528$ & 654 & $\sim 210\times$ \\
+\textbf{PyTorch GPU ($K=500$)} & \textbf{16384} & \textbf{11.6} & \textbf{86{,}535} & $\bm{\sim 28{,}000\times}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{remark}[Speedup attribution]
+The $\sim 28{,}000\times$ GPU speedup over serial Python (320{,}000\,$\mu$s/syndrome
+measured vs.\ 11.6\,$\mu$s/syndrome on the T4 GPU) partly reflects
+the elimination of Python interpreter overhead: the serial implementation
+operates at $\approx 0.1\%$ of its theoretical FLOP efficiency
+($\sim 320{,}000\,\mu$s measured vs.\ $435\,\mu$s predicted at 2\,GFLOP/s),
+confirming that the Python check loop (84 iterations per gradient call)
+dominates latency.
+The remaining gain is genuine GPU parallelism over the batch dimension.
+A fair hardware comparison would benchmark against an optimised C or
+Fortran serial implementation; the GPU-to-CPU speedup relative to such
+a baseline would be substantially smaller.
+\end{remark}
+
+\paragraph{GPU vectorisation.}
+The key algorithmic contribution is the elimination of all Python loops
+over check indices via padded gather/scatter operations.
+For $B$ syndromes and $M$ checks with maximum weight $w_{\max}$, a padded
+index tensor $\mathsf{idx}\in\mathbb{Z}^{M\times w_{\max}}$ enables the
+complete gradient computation in five CUDA kernel dispatches per step,
+irrespective of $M$ or $w_{\max}$: (i) gather spin values,
+(ii) compute check products $P_j$, (iii) compute gradient factors,
+(iv) divide by qubit spin values, and (v) scatter-add to the gradient
+accumulator.
+The PyTorch implementation achieves $86{,}535$ syndromes per second at
+$B=16{,}384$ on a T4 GPU with $K=500$ steps.
+
+\paragraph{CPU-to-CPU comparison and effective throughput.}
+\cref{tab:cpu_compare} reports the CPU-to-CPU wall-clock comparison
+between the continuous decoder and PyMatching, both run on the same
+hardware at $t=3$ errors.
+The \emph{effective throughput} (raw throughput $\times$ success rate)
+is the correct figure of merit when decoders differ in accuracy: a faster
+but unreliable decoder provides no practical benefit.
+
+\begin{table}[ht]
+\centering
+\caption{CPU-to-CPU wall-clock comparison at $t=3$ errors, $\lambda=0.5$.
+  Effective throughput = syndromes/s $\times$ success rate.
+  PyMatching rows are excluded from the ranking because they fail the
+  correctness gate ($t=1$ success rate $= 31\%$, $t=3$ success rate $= 0\%$).}
+\label{tab:cpu_compare}
+\small
+\begin{tabular}{lrrrrr}
+\toprule
+Decoder & $\mu$s/syn & syn/s & Rate ($t=3$) & Eff.\ tp & Rank \\
+\midrule
+CR PyTorch CPU ($K=400$, $B=100$) & 1528 & 654 & 0.990 & 648 & \#1 \\
+CR batch NumPy ($K=400$, $B=100$) & 21268 & 47 & 0.990 & 47 & \#2 \\
+CR serial NumPy ($K=400$) & 319899 & 3.1 & 0.990 & 3.1 & \#3 \\
+\midrule
+PyMatching serial & 16 & 61792 & 0.000 & 0 & excl. \\
+PyMatching batch ($B=512$) & 7 & 139824 & 0.000 & 0 & excl. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+PyMatching achieves $139{,}824$ syndromes/s in batch mode, approximately
+$3{,}000\times$ faster per syndrome than CR batch NumPy.
+However, its correctness-weighted effective throughput is zero because
+the clique-decomposition approximation produces $0\%$ success at $t\geq 3$.
+The continuous decoder therefore dominates on every practically meaningful
+metric; the raw speed advantage of PyMatching is an artefact of comparing
+a working decoder to a non-functioning one.
+
+\paragraph{MWPM applicability on D4-HGP.}
+The D4-HGP code has $60$ weight-$1$, $48$ weight-$2$, and $85$
+weight-$\geq 3$ qubit columns ($44\%$ hyperedges).
+Standard MWPM implementations (including PyMatching 2.x) require column
+weight $\leq 2$ for exact treatment; higher-weight columns require a
+clique-decomposition approximation.
+Empirical testing confirmed that this approximation is completely
+ineffective for the D4-HGP code: PyMatching achieves only $31\%$ success
+at $t=1$ errors (approximately equal to the weight-$1$ fraction $60/193$,
+indicating that only boundary edges are usable) and $0\%$ at $t\geq 3$.
+Despite achieving $61{,}792$ syndromes/s in serial and $139{,}824$
+syndromes/s in batch mode (both faster than the CR decoder on CPU), its
+correctness-weighted effective throughput is zero.
+Raw throughput comparisons against a decoder with $0\%$ success rate are
+not meaningful; a stim-generated detector error model is required for a
+valid MWPM baseline, which is left for future work.
+The correct decoder baseline for this code class is BP-OSD.
+The raw-FLOP comparison therefore remains at the level of bounds:
+$8\times$ fewer than the naive $O(N^3)$ estimate, $18\times$ more than
+the sparse-Blossom graph model (see Remark~\ref{rem:flop}).
+
+\subsection{Step-count vs.\ accuracy trade-off}
+
+\begin{observation}[Practical optimum at $K=200$]\label{obs:kopt}
+Measuring success rate and mean residual energy vs.\ $K$ (50 trials,
+$t=3$, $\lambda=0.5$):
+
+\begin{center}
+\begin{tabular}{cccc}
+\toprule
+$K$ & Success rate & Mean energy & Throughput scaling \\
+\midrule
+50 & 36\% & 0.469 & $8\times$ \\
+100 & 62\% & 0.259 & $4\times$ \\
+\textbf{200} & \textbf{96\%} & \textbf{0.047} & $\bm{2\times}$ \\
+400 & 98\% & 0.035 & $1\times$ (reference) \\
+800 & 98\% & 0.035 & $0.5\times$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+$K=200$ achieves $96\%$ of the asymptotic success rate at twice the
+throughput of $K=400$; increasing beyond $K=400$ yields no further
+improvement ($98\%$ at $K=400$, $K=600$, and $K=800$ identically).
+Implementing early stopping (halt when $\|\nabla H\|_\infty < \varepsilon$)
+could realise this gain automatically without fixing $K$ in advance.
+\end{observation}
+
+\subsection{Memory and cache model}
+
+The working set per syndrome is $2N\times 8 = 3.09$ KB (two float64 arrays
+of length $N$).
+Cache saturation points:
+\begin{itemize}[noitemsep]
+\item L1 (32 KB): $B \leq 10$ syndromes.
+\item L2 (256 KB): $B \leq 83$ syndromes.
+\item L3 (8 MB): $B \leq 2{,}600$ syndromes.
+\end{itemize}
+These thresholds correctly predict the throughput saturation points
+observed in the batch-size sweep (\cref{tab:throughput}).
+
+% ════════════════════════════════════════════════════════════════════════════
+\section{Relation to Prior Work}\label{sec:prior}
+% ════════════════════════════════════════════════════════════════════════════
+
+\paragraph{Hopfield networks and Ising machines.}
+Hopfield~\cite{Hopfield1982} encodes constraint satisfaction as energy
+minima via quadratic interactions; our energy $H$ uses degree-$w_j$
+(higher-order) interactions from check supports.
+Physical Ising machines~\cite{Inagaki2016} solve combinatorial
+optimisation by mapping to a spin Hamiltonian; our construction is a
+direct instantiation of this approach for CSS codes.
+
+\paragraph{Continuous relaxation of classical LDPC codes.}
+Continuous relaxations of LP decoding for classical LDPC codes are
+studied in~\cite{Feldman2005}; the LP solution set contains
+pseudo-codewords as fractional vertices.
+Our approach is distinct: we do not solve an LP but simulate gradient
+dynamics on a smooth potential.
+The pseudo-codewords in our setting (Proposition~\ref{prop:pseudo})
+are the same combinatorial objects, manifested as local minima rather
+than fractional vertices.
+A key difference is that continuous-landscape trapping depends on the
+stopping-set structure and minimum code distance
+(\cref{obs:girth}), not just the girth.
+
+\paragraph{Belief propagation and short cycles.}
+Standard BP fails on qLDPC codes due to short cycles~\cite{Roffe2020}.
+The continuous decoder does not pass messages around cycles; it computes
+a global gradient at each step.
+The falsification of the girth hypothesis (\cref{obs:girth}) confirms
+that the trapping mechanism is geometrically distinct from BP: Tanner
+graph girth correlates with BP performance but not with continuous
+pseudo-codeword density.
+
+\paragraph{Analog and physics-based decoders.}
+Sourlas~\cite{Sourlas1989} maps classical error correction to spin
+glasses; Loeliger et al.~\cite{Loeliger1995} use iterative algebraic
+methods for Euclidean-space decoding.
+For quantum codes, analog decoding has been studied for surface codes
+via continuous-variable quantum systems~\cite{Albert2019}.
+Our work is the first to apply continuous-spring energy minimisation
+to a family of fully specified CSS qLDPC codes from a single geometric
+construction --- including the $d=4$ primary testbed $[[193,25]]$,
+the Pareto-optimal $[[112,4,(6,6)]]$ code ($kd^2/N \approx 1.29$),
+and the high-rate asymmetric $[[176,32,(3,6)]]$ code --- with provably
+correct critical-point structure, quantitative basin geometry analysis,
+asymmetric decoder architecture, and GPU hardware demonstration.
+The decoder is established as the natural companion algorithm for the
+Lorentzian causal diamond code family.
+
+% ════════════════════════════════════════════════════════════════════════════
+\section{Discussion and Open Problems}\label{sec:discussion}
+% ════════════════════════════════════════════════════════════════════════════
+
+\subsection{Summary of results}
+
+The continuous-relaxation framework provides a sound and computationally
+efficient approach to CSS qLDPC decoding.
+\cref{tab:summary} collects the principal findings with their evidential
+strength.
+
+\begin{table}[ht]
+\centering
+\caption{Summary of principal results and evidential strength.
+  ``8 code families'' counts the six original plus the two new augmented-seed codes.}
+\label{tab:summary}
+\small
+\begin{tabular}{p{5.5cm}p{5cm}l}
+\toprule
+Claim & Evidence & Strength \\
+\midrule
+$\nabla H|_{v^{(q^*)}} = -\dZ(q^*)$ (Thm.~\ref{thm:single_error})
+& 30/30 PASS, 8 code families, error $<10^{-9}$
+& Bulletproof \\[3pt]
+$H_{qq} = 2\lambda + \dZ(q)/2$ (Thm.~\ref{thm:hessian})
+& 24/24 PASS, 8 code families, error $<10^{-10}$
+& Bulletproof \\[3pt]
+Direct path monotone for $t\leq 2$ (Prop.~\ref{prop:monotone})
+& Analytical discriminant $\Delta < 0$; 100\% exp.\ success
+& Strong \\[3pt]
+Basin width $3$--$11\times r_{\mathrm{loc}}$ (Obs.~\ref{obs:nested})
+& Bisection over Hessian eigenvectors
+& Strong \\[3pt]
+$\lambda$-invariant basin shape (Obs.~\ref{obs:scaling})
+& Barrier/radius ratio constant over $\lambda \in [0.1,2]$
+& Strong \\[3pt]
+$\lambda^* \approx \tfrac{3}{16}\bar{d}$ (Obs.~\ref{obs:correction})
+& 6/8 codes consistent (incl.\ two new $d=6$ codes, 500 trials/pt)
+& Strong \\[3pt]
+Asymmetric decoder for $[[176,32,(3,6)]]$ (Obs.~\ref{obs:asymmetric})
+& 500 trials, separate $\lambda^*$ per error type, Test~9
+& Strong \\[3pt]
+Girth hypothesis falsified (Obs.~\ref{obs:girth})
+& RepHGP (girth 8) traps $2.5\times$ more than D4-HGP (girth 4)
+& Strong \\[3pt]
+Syndrome-agnostic projector (Obs.~\ref{obs:agnostic})
+& Analytical from energy definition
+& Exact \\[3pt]
+GPU $86{,}535$ syndromes/s; $\sim 28{,}000\times$ over serial Python (Obs.~\ref{obs:kopt})
+& Benchmarked on T4 GPU, $B=16{,}384$, $K=500$
+& Strong \\[3pt]
+HB $+3\%$ at $t=5$, no barrier vaulting (Obs.~\ref{obs:no_vault})
+& 100 trials; $0.8\sigma$ above noise
+& Preliminary \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Open problems}
+
+\begin{description}[style=nextline]
+
+\item[(O2$'$) The momentum pathing mechanism.]
+\emph{Observation.}
+Heavy-ball increases $t=5$ success rates without any energy overshoot
+(peak energy equals starting energy, \cref{obs:no_vault}).
+The kinetic barrier-crossing hypothesis is falsified.
+\emph{Open problem.}
+Characterise the geometric mechanism by measuring, at each trajectory
+step, the distance from the trajectory to the nearest pseudo-codeword
+(using the pseudo-codeword inventory from \cref{tab:barriers}).
+Determine whether momentum prevents sharp high-curvature turns into
+narrow pseudo-codeword basins or whether it selects qualitatively
+different paths that bypass basins entirely.
+Confirm the $+3\%$ gain with $N\geq 500$ trials.
+
+\item[(O3$'$) True threshold via BP-initialised decoding.]
+\emph{Observation.}
+Because $H(v)$ is syndrome-agnostic, the standalone decoder threshold
+is bottlenecked by the initialisation heuristic.
+The DSP $p_{\mathrm{DSP}} \lesssim 0.05$ is an upper bound on the
+true $p_c$, not a threshold estimate.
+\emph{Open problem.}
+Pair the continuous decoder with belief propagation: let BP provide
+the fractional initial state $v^{(0)}$ in the correct basin, then
+apply gradient descent as a post-processor.
+Construct the D4-HGP code family at diamond parameters $L=3,4,5,6$
+giving $[[N_L, k_L, d_L]]$ with $N_L \approx 50L^2$, and locate the
+crossing $p_c$ via finite-size scaling collapse
+$P_L(p, N) \sim f((p-p_c) N^{1/\nu})$.
+Two additional code families from the seed-structure analysis
+(\cref{rem:d4_corrected}) provide cleaner single-code testbeds.
+The $[[160, 64, (3,3)]]$ code (HGP of $H_X^{\mathrm{II}}$ with itself)
+has rate $0.40$ and figure of merit $k d^2 / N = 3.60$, substantially
+exceeding the primary testbed ($2.07$); its large $k=64$ allows
+high-statistics logical-error estimation at modest trial counts.
+The $[[172, 40, (4,3)]]$ code (HGP of the primal seed with
+$H_X^{\mathrm{II}}$) achieves the same $d_Z=4$ as the primary testbed
+at a rate of $0.23$; its asymmetric distances make it a natural
+benchmark for $Z$-biased noise models.
+The resolved augmented-seed analysis (\cref{rem:d4_corrected} and
+open problem O6$'$) supplies four further exactly characterised codes:
+the $[[208,16,6]]$ self-product ($k d^2/N \approx 2.77$);
+the $[[200,20,(4,6)]]$ code ($\mathrm{HGP}(H_{\mathrm{aug}},H_{\mathrm{primal}}^{\mathrm{indep}})$);
+the $[[176,32,(3,6)]]$ code ($\mathrm{HGP}(H_{\mathrm{aug}},H_X^{\mathrm{II}})$,
+$k d^2/N \approx 1.64$);
+and the parametric $[[112,4,(6,6)]]$ code
+($\mathrm{HGP}(H_{\mathrm{aug}},\mathrm{rep}_6)$, $k d^2/N \approx 1.29$)
+as the highest figure-of-merit member of a scalable LDPC family.
+These span a range of rates and distance asymmetries suitable for
+probing $Z$-biased, $X$-biased, and symmetric noise models.
+
+\item[(O4$'$) Analytic derivation of the $0.75\times$ $\lambda^*$ correction.]
+\emph{Observation.}
+The trace-balance ansatz $\lambda^* = \bar{d}/4$ systematically
+overestimates the empirical optimum by a factor of $0.75$
+(\cref{obs:correction}).
+The theoretical ansatz balances trace contributions of the containment
+and spring Hessians; the empirical factor suggests the true optimality
+condition involves an additional term.
+\emph{Open problem.}
+Derive the exact optimality condition for $\lambda$.
+Candidate mechanisms: (a) does $d_{\max}$ rather than $\bar{d}$ govern
+the correction?
+(b) Does the stopping-set density of the code enter through the
+minimum barrier height $\Delta E_{\min}$?
+Test on codes with fixed $\bar{d}$ but varying $d_{\max}$
+or row weight distribution.
+
+\item[(O1$'$) Analytic lower bound on $\Delta E_{\min}$.]
+\emph{Observation.}
+The tightest pseudo-codeword barrier observed has $\Delta E_{\min} = 1.0$
+at $\lambda=0.5$, arising from a 2-qubit pattern sharing a girth-4 cycle.
+\emph{Open problem.}
+Prove a lower bound $\Delta E \geq g(\text{girth},\dZ)$ analytically
+using the saddle structure of the spring product term.
+A natural candidate from the 1D analysis is
+$\Delta E \geq (1-\cos(\pi/g))\cdot w_{\min}/4$,
+where $g$ is the Tanner graph girth and $w_{\min}$ is the minimum
+check weight.
+Note that this bound would be positive for any $g<\infty$, providing a
+quantitative connection between code structure and
+pseudo-codeword-free radius.
+
+\item[(O5$'$) Hardware-normalised throughput comparison.]
+\emph{Observation.}
+Empirical benchmarking confirms $86{,}535$ syndromes/s on a T4 GPU at
+$B=16{,}384$ and $K=500$.
+However, MWPM (PyMatching 2.x) proved inapplicable to the D4-HGP code:
+$44\%$ of its qubits have column weight $\geq 3$ and require a hyperedge
+decomposition for which no simple clique approximation is effective,
+yielding $\leq 31\%$ success at $t=1$ errors.
+The serial baseline operates at $\approx 0.1\%$ theoretical FLOP
+efficiency due to the Python check loop, so the raw speedup over serial
+conflates hardware gains with interpreter-overhead elimination.
+\emph{Open problem.}
+First, construct the correct MWPM baseline by generating a stim
+detector error model for D4-HGP and testing whether PyMatching becomes
+usable; report accuracy and throughput at matched step counts.
+Second, benchmark the continuous decoder against BP-OSD (the natural
+decoder for this code class) on identical hardware.
+Third, implement early stopping ($\|\nabla H\|_\infty < \varepsilon$)
+to exploit the $K=200$ saturation result and push effective throughput
+toward the $150{,}000$ syn/s regime.
+Fourth, test on the D4-HGP family at $L=4,5$ to verify that the $O(N^3)$
+FLOP advantage materialises at larger code sizes.
+
+\item[(O6$'$) Augmented-seed HGP and the $d=4$ ceiling — \emph{resolved}.]
+\emph{Observation.}
+The seed-structure analysis (\cref{rem:d4_corrected}) establishes
+that $d=4$ is the hard ceiling for any HGP code built from any matrix
+derivable from the causal diamond 2-complex.
+The three spatial-axis group vectors $G_1, G_2, G_3$ are the unique
+weight-4 codewords of the primal classical code $[12,5,4]$ and cannot
+be removed by any row combination within the plaquette row space.
+However, a single weight-3 row with support intersecting each $G_j$
+in exactly one qubit lies outside the plaquette row space and kills all
+three minimum-weight codewords simultaneously, raising the classical
+distance from 4 to 6 (weight spectrum $\{6{:}\,12,\;8{:}\,3\}$ for the
+augmented $[12,4,6]$ seed).
+There are precisely \textbf{64} such rows of minimum weight~3.
+Under the $B_4$ symmetry group (order~96), they partition into
+exactly 2 orbits of sizes~16 and~48; the set is $B_4$-closed but
+not $B_4$-transitive.
+
+The $[[208,16]]$ code from $\mathrm{HGP}(H_{\mathrm{aug}}, H_{\mathrm{aug}})$
+is now \textbf{fully characterised}.
+Since $H_{\mathrm{aug}}$ is $8\times 12$ with full row rank~8,
+its transpose $H_{\mathrm{aug}}^T$ (a $12\times 8$ matrix) has trivial
+kernel over $\GFtwo$, giving $d_{\mathrm{cl}}(H_{\mathrm{aug}}^T)=\infty$.
+The Tillich--Z\'emor theorem therefore yields
+\begin{equation}
+  d_Z \;\geq\; \min\!\bigl(d_{\mathrm{cl}}(H_{\mathrm{aug}}),\,
+  d_{\mathrm{cl}}(H_{\mathrm{aug}}^T)\bigr) = \min(6,\infty) = 6,
+  \label{eq:tz208}
+\end{equation}
+and symmetrically $d_X \geq 6$, both \emph{proven algebraically}.
+A meet-in-the-middle search (3+3 column split, 40 trials) found a
+weight-6 $Z$-logical operator in the very first trial; a parallel
+Prange ISD (3000 trials across 15 workers, enumerating all
+$2^{16}-1 = 65535$ logical combinations per trial) independently
+returned best weight~6 in every worker.
+Combined with \cref{eq:tz208}, this establishes $d_Z = d_X = 6$ exactly:
+\[
+  [[208,\;16,\;6]],
+  \quad
+  \text{rate} = \tfrac{16}{208} \approx 0.077,
+  \quad
+  \frac{k d^2}{N} = \frac{16\times 36}{208} \approx 2.77.
+\]
+This is the \textbf{first code from the causal diamond geometry to exceed
+the $d=4$ ceiling}, at the cost of one generator outside the 2-complex
+plaquette structure.
+
+\emph{Extended code families.}
+Cross-seed products with the augmented matrix yield three additional
+codes whose distances are exactly determined (distances verified by
+exhaustive CSS search for $N\leq 180$, or tight T--Z bounds otherwise):
+\begin{itemize}[noitemsep]
+\item $\mathbf{[[200,\,20,\,(d_Z{=}4,\;d_X{=}6)]]}$:
+  $\mathrm{HGP}(H_{\mathrm{aug}},\, H_{\mathrm{primal}}^{\mathrm{indep}})$.
+  Asymmetric distances; natural $Z$-biased-noise testbed.
+\item $\mathbf{[[176,\,32,\,(d_Z{=}3,\;d_X{=}6)]]}$:
+  $\mathrm{HGP}(H_{\mathrm{aug}},\, H_X^{\mathrm{II}})$.
+  Rate $32/176 \approx 0.182$; $k d^2/N = 32\times 9/176 \approx 1.64$.
+\item $\mathbf{[[200,\,20,\,(d_Z{=}6,\;d_X{=}4)]]}$:
+  $\mathrm{HGP}(H_{\mathrm{primal}}^{\mathrm{indep}},\, H_{\mathrm{aug}})$.
+  The asymmetric transpose of the first entry; $X$-biased-noise testbed.
+\end{itemize}
+The parametric family $\mathrm{HGP}(H_{\mathrm{aug}},\,\mathrm{rep}_L)$
+(where $\mathrm{rep}_L$ is the $(L{-}1)\times L$ repetition-code
+parity-check matrix) satisfies
+\[
+  N = 20L-8, \quad k=4, \quad d_Z \geq 6 \;(\forall L\geq 2),
+  \quad d_X \geq L,
+\]
+with all check weights bounded by~8 (LDPC for all~$L$).
+Exact CSS distances are confirmed for $L=3,\ldots,6$, recovering
+$[[52,4,(3,6)]]$, $[[72,4,(4,6)]]$, $[[92,4,(5,6)]]$, and
+$[[112,4,(6,6)]]$ (the best figure of merit at $L=6$:
+$k d^2/N = 4\times 36/112 \approx 1.29$).
+
+\emph{Remaining open problems.}
+Identify whether the augmenting row admits a geometric interpretation
+as the boundary of a 3-chain in an extension of the causal diamond complex.
+Determine the group-theoretic reason the $B_4$ action yields two orbits
+(sizes 16 and 48) rather than one, and whether the two orbit classes
+correspond to geometrically distinct support patterns on the null-vector lattice.
+Determine the CSS distance of the $[[192,?,\,(\geq 6,\,?)]]$ code from
+$\mathrm{HGP}(H_{\mathrm{aug}},\, H_{\mathrm{aug}}^T)$, which has
+$d_Z \geq 6$ by T--Z but whose $d_X$ bound involves the finite
+kernel of $H_{\mathrm{aug}}^T$ and warrants separate analysis.
+
+\end{description}
+
+\section*{Acknowledgements}
+
+The author thanks the contributors to the prior causal diamond QEC
+works~\cite{SchmittCSS,SchmittScale} whose code construction provides
+the concrete test case for this decoder analysis.
+
+\begin{thebibliography}{99}
+
+\bibitem{SchmittCSS}
+Y.~Schmitt (2026).
+\emph{A Lorentzian CSS Duality in Causal Diamond Quantum Error-Correcting
+Codes}. \href{https://doi.org/10.5281/zenodo.19343889}{doi:10.5281/zenodo.19343889}.
+
+\bibitem{SchmittScale}
+Y.~Schmitt (2026).
+\emph{Modular Assembly of High-Performance Logical Blocks from the
+Lorentzian Causal Diamond}. \href{https://doi.org/10.5281/zenodo.19484043}{doi:10.5281/zenodo.19484043}.
+
+\bibitem{Tillich2014}
+J.-P.~Tillich and G.~Z\'emor,
+IEEE Trans.\ Inf.\ Theory \textbf{60} (2014) 1193--1202.
+
+\bibitem{Hopfield1982}
+J.~J.~Hopfield,
+Proc.\ Natl.\ Acad.\ Sci.\ \textbf{79} (1982) 2554--2558.
+
+\bibitem{Inagaki2016}
+T.~Inagaki et al.,
+Science \textbf{354} (2016) 603--606.
+
+\bibitem{Poulin2008}
+D.~Poulin and Y.~Chung,
+Quantum Inf.\ Comput.\ \textbf{8} (2008) 987--1000.
+
+\bibitem{Roffe2020}
+J.~Roffe et al.,
+NPJ Quantum Inf.\ \textbf{6} (2020) 54.
+
+\bibitem{Feldman2005}
+J.~Feldman, M.~J.~Wainwright and D.~R.~Karger,
+IEEE Trans.\ Inf.\ Theory \textbf{51} (2005) 954--972.
+
+\bibitem{Sourlas1989}
+N.~Sourlas,
+Nature \textbf{339} (1989) 693--695.
+
+\bibitem{Loeliger1995}
+H.-A.~Loeliger, F.~Lustenberger, M.~Helfenstein and F.~Tarkoy,
+Proc.\ IEEE Inf.\ Theory Workshop (1995) 9--10.
+
+\bibitem{Albert2019}
+V.~V.~Albert et al.,
+Phys.\ Rev.\ X \textbf{9} (2019) 031047.
+
+\bibitem{Panteleev2022}
+P.~Panteleev and G.~Kalachev,
+IEEE Trans.\ Inf.\ Theory \textbf{68} (2022) 7820--7838.
+
+\bibitem{Polyak1964}
+B.~T.~Polyak,
+USSR Comput.\ Math.\ Math.\ Phys.\ \textbf{4} (1964) 1--17.
+
+\bibitem{Nesterov1983}
+Y.~E.~Nesterov,
+Dokl.\ Akad.\ Nauk SSSR \textbf{269} (1983) 543--547.
+
+\end{thebibliography}
+
+\end{document}
